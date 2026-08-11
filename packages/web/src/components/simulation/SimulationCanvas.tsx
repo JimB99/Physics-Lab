@@ -8,6 +8,7 @@ interface SimulationCanvasProps {
   isProjectile?: boolean;
   highlightTime?: number;
   onTimeChange?: (t: number) => void;
+  flightTime?: number;
 }
 
 export function SimulationCanvas({
@@ -15,6 +16,7 @@ export function SimulationCanvas({
   isProjectile = false,
   highlightTime,
   onTimeChange,
+  flightTime,
 }: SimulationCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [timeIndex, setTimeIndex] = useState(0);
@@ -113,6 +115,9 @@ export function SimulationCanvas({
           t = {formatNumber(sample.t)} s · y = {formatNumber(sample.y)} m
           {isProjectile && ` · x = ${formatNumber(sample.x)} m`}
           {' · '}Ek = {formatNumber(sample.kineticEnergy)} J · Ep = {formatNumber(sample.potentialEnergy)} J
+          {flightTime !== undefined && sample.t >= flightTime - 0.01 && (
+            <span style={{ color: 'var(--danger)' }}> · Impact</span>
+          )}
         </div>
       )}
       <PlaybackControls

@@ -2,33 +2,39 @@ import { useState } from 'react';
 import type { MotionSample } from 'physics-engine';
 import { UPlotChart } from './UPlotChart';
 
-type GraphKind = 'position' | 'velocity' | 'acceleration' | 'energy' | 'trajectory' | 'forces';
+type GraphKind = 'position' | 'velocity' | 'acceleration' | 'energy' | 'trajectory' | 'forces' | 'compare';
 
 interface GraphTabsProps {
   samples: MotionSample[];
+  vacuumSamples?: MotionSample[];
   isProjectile?: boolean;
   g: number;
   mass: number;
+  dragEnabled?: boolean;
 }
 
-export function GraphTabs({ samples, isProjectile = false, g, mass }: GraphTabsProps) {
-  const [tab, setTab] = useState<GraphKind>('position');
+export function GraphTabs({ samples, vacuumSamples, isProjectile = false, g, mass, dragEnabled }: GraphTabsProps) {
+  const [tab, setTab] = useState<GraphKind>(dragEnabled ? 'compare' : 'position');
   const t = samples.map((s) => s.t);
+  const vac = vacuumSamples ?? samples;
 
-  const tabs: { id: GraphKind; label: string }[] = isProjectile
-    ? [
-        { id: 'trajectory', label: 'Trajectory' },
-        { id: 'velocity', label: 'Velocity' },
-        { id: 'energy', label: 'Energy' },
-        { id: 'forces', label: 'Forces' },
-      ]
-    : [
-        { id: 'position', label: 'Position' },
-        { id: 'velocity', label: 'Velocity' },
-        { id: 'acceleration', label: 'Acceleration' },
-        { id: 'energy', label: 'Energy' },
-        { id: 'forces', label: 'Forces' },
-      ];
+  const tabs: { id: GraphKind; label: string }[] = [
+    ...(dragEnabled ? [{ id: 'compare' as GraphKind, label: 'Vacuum vs drag' }] : []),
+    ...(isProjectile
+      ? [
+          { id: 'trajectory' as GraphKind, label: 'Trajectory' },
+          { id: 'velocity' as GraphKind, label: 'Velocity' },
+          { id: 'energy' as GraphKind, label: 'Energy' },
+          { id: 'forces' as GraphKind, label: 'Forces' },
+        ]
+      : [
+          { id: 'position' as GraphKind, label: 'Position' },
+          { id: 'velocity' as GraphKind, label: 'Velocity' },
+          { id: 'acceleration' as GraphKind, label: 'Acceleration' },
+          { id: 'energy' as GraphKind, label: 'Energy' },
+          { id: 'forces' as GraphKind, label: 'Forces' },
+        ]),
+  ];
 
   return (
     <div>
@@ -40,30 +46,60 @@ export function GraphTabs({ samples, isProjectile = false, g, mass }: GraphTabsP
         ))}
       </div>
 
-      {samples.length > 0 && (
+      {dragEnabled && (
+        <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          With drag, total mechanical energy decreases over time.
+        </p>
+      )}
+      {!dragEnabled && samples.length > 0 && (
         <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
           Total mechanical energy is constant (idealized model, no air resistance).
         </p>
       )}
 
+      {tab === 'compare' && dragEnabled && (
+        <>
+          <UPlotChart
+            title={isProjectile ? 'Height: vacuum vs drag' : 'Height: vacuum vs drag'}
+            xLabel="t (s)"
+            yLabel="y (m)"
+            xData={vac.map((s) => s.t)}
+            series={[
+              { label: 'vacuum', data: vac.map((s) => s.y), color: '#4da3ff' },
+              { label: 'drag', data: samples.map((s) => s.y), color: '#f0b429' },
+            ]}
+          />
+          {isProjectile && (
+            <UPlotChart
+              title="Horizontal position: vacuum vs drag"
+              xLabel="t (s)"
+              yLabel="x (m)"
+              xData={vac.map((s) => s.t)}
+              series={[
+                { label: 'vacuum', data: vac.map((s) => s.x), color: '#4da3ff' },
+                { label: 'drag', data: samples.map((s) => s.x), color: '#f0b429' },
+              ]}
+            />
+          )}
+          <UPlotChart
+            title="Total energy"
+            xLabel="t (s)"
+            yLabel="E (J)"
+            xData={samples.map((s) => s.t)}
+            series={[
+              { label: 'vacuum E', data: vac.map((s) => s.totalMechanicalEnergy), color: '#4da3ff' },
+              { label: 'drag E', data: samples.map((s) => s.totalMechanicalEnergy), color: '#f87171' },
+            ]}
+          />
+        </>
+      )}
+
       {tab === 'position' && !isProjectile && (
-        <UPlotChart
-          title="Height vs time"
-          xLabel="t (s)"
-          yLabel="y (m)"
-          xData={t}
-          series={[{ label: 'y', data: samples.map((s) => s.y), color: '#4da3ff' }]}
-        />
+        <UPlotChart title="Height vs time" xLabel="t (s)" yLabel="y (m)" xData={t} series={[{ label: 'y', data: samples.map((s) => s.y), color: '#4da3ff' }]} />
       )}
 
       {tab === 'trajectory' && isProjectile && (
-        <UPlotChart
-          title="Trajectory"
-          xLabel="x (m)"
-          yLabel="y (m)"
-          xData={samples.map((s) => s.x)}
-          series={[{ label: 'path', data: samples.map((s) => s.y), color: '#4da3ff' }]}
-        />
+        <UPlotChart title="Trajectory" xLabel="x (m)" yLabel="y (m)" xData={samples.map((s) => s.x)} series={[{ label: 'path', data: samples.map((s) => s.y), color: '#4da3ff' }]} />
       )}
 
       {tab === 'velocity' && (
@@ -85,13 +121,7 @@ export function GraphTabs({ samples, isProjectile = false, g, mass }: GraphTabsP
       )}
 
       {tab === 'acceleration' && !isProjectile && (
-        <UPlotChart
-          title="Acceleration vs time"
-          xLabel="t (s)"
-          yLabel="a (m/s²)"
-          xData={t}
-          series={[{ label: 'ay', data: samples.map((s) => s.ay), color: '#f87171' }]}
-        />
+        <UPlotChart title="Acceleration vs time" xLabel="t (s)" yLabel="a (m/s²)" xData={t} series={[{ label: 'ay', data: samples.map((s) => s.ay), color: '#f87171' }]} />
       )}
 
       {tab === 'energy' && (
@@ -110,12 +140,18 @@ export function GraphTabs({ samples, isProjectile = false, g, mass }: GraphTabsP
 
       {tab === 'forces' && (
         <UPlotChart
-          title="Gravitational force vs time"
+          title="Forces vs time"
           xLabel="t (s)"
           yLabel="F (N)"
           xData={t}
           series={[
             { label: 'Fg', data: samples.map(() => mass * g), color: '#4da3ff' },
+            ...(dragEnabled
+              ? [
+                  { label: 'Fdrag', data: samples.map((s) => s.dragForce ?? 0), color: '#f0b429' },
+                  { label: 'Fnet', data: samples.map((s) => s.netForce ?? mass * g), color: '#f87171' },
+                ]
+              : []),
           ]}
         />
       )}

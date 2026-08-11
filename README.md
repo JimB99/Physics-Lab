@@ -1,944 +1,203 @@
 # Physics Lab
 
-Interactive physics calculations, simulations, equations, and visualizations.
+Interactive physics playground for motion under gravity — calculations, equations, graphs, and simulations in the browser.
 
-## Implementation Status
+**[Live demo](https://jimb99.github.io/Physics-Lab/)** · MIT License
 
-**Last completed stage:** Stage 7 — Environment, Energy, and Forces  
-**Live site:** https://\<user\>.github.io/Physics-Lab/ (after enabling GitHub Pages)
+Physics Lab is not a black-box calculator. Enter what you know, solve for what you don't, and see the equations, assumptions, and graphs update together.
 
-| README Phase / Section | Status |
-|------------------------|--------|
-| Phase 1 — Foundation | Complete |
-| Phase 2 — Basic Motion | Complete |
-| Phase 3 — Equations and Explanations | Complete |
-| Phase 4 — Visualization | Complete |
-| Interactive Simulation | Complete |
-| Phase 5 — Environment | Complete |
-| Phase 6 — Energy and Forces | Complete |
-| Phase 7 — Impact | Not started |
-| Phase 8 — Air Resistance | Not started |
-| Future Ideas, Comparison Mode | Not started |
+---
 
-### Not yet implemented
+## Features
 
-- Phase 7 — Impact (stopping distance/time, impact force models)
-- Phase 8 — Air resistance (numerical integration, terminal velocity)
-- Comparison Mode, 3D visualization, additional physics topics (see Future Ideas)
+### Motion scenarios
 
-### Local development
+| Scenario | Route | Description |
+|----------|-------|-------------|
+| Free fall | `/motion/free-fall` | Object falling under gravity |
+| Vertical throw | `/motion/vertical-throw` | Thrown upward or downward |
+| Projectile motion | `/motion/projectile` | Launch at an angle |
+
+Each scenario uses a **workspace layout**: environment & inputs on the left, live simulation in the center, results on the right, and tabs for graphs, equations, and assumptions.
+
+### Flexible problem solving
+
+Mark any quantity as **Given** or **Solve for** — for example:
+
+- Given initial height and velocity → solve impact time and speed
+- Given time → solve position and velocity at that instant
+- Given height → solve when the object reaches it
+
+Works with the idealized (constant *g*, no drag) model. When air resistance is enabled, the app switches to forward numerical simulation.
+
+### Environments
+
+Choose a celestial body or custom gravity:
+
+Mercury, Venus, Earth, Moon, Mars, Jupiter, Saturn, Uranus, Neptune, **Sun** (surface gravity), or custom *g*.
+
+### Air resistance
+
+Optional quadratic drag model with atmosphere presets, object shape → drag coefficient, and cross-sectional area. Includes RK4 numerical integration, terminal velocity, vacuum-vs-drag graph overlays, and energy-loss tracking.
+
+### Impact analysis
+
+Post-motion estimates using stopping time or stopping distance:
+
+- Average impact force
+- Impact acceleration and G-force
+- Pressure (with contact area)
+
+Clearly labeled as **average** force, not peak.
+
+### Comparison mode
+
+[`/compare`](/compare) — run up to three variants side by side:
+
+- **Environment** — e.g. Earth vs Moon
+- **Drag** — vacuum vs air resistance
+- **Angle** — different launch angles (projectile)
+
+Shared graphs and multi-object simulation.
+
+### Equations & visualization
+
+- KaTeX-rendered equations with solve steps
+- Live uPlot charts (position, velocity, energy, forces, trajectory)
+- Canvas animation with play / pause / scrub
+- Shareable URLs (inputs and modes encoded in query params)
+
+---
+
+## Getting started
+
+**Requirements:** Node.js 20+
 
 ```bash
+git clone https://github.com/JimB99/Physics-Lab.git
+cd Physics-Lab
 npm install
-npm test
-npm run dev
-npm run build
 ```
 
----
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server at `http://localhost:5173/Physics-Lab/` |
+| `npm test` | Run physics-engine unit tests (Vitest) |
+| `npm run build` | Production build → `packages/web/dist` |
+| `npm run preview` | Preview production build locally |
 
-Physics Lab is a web application for exploring physics through interactive calculations and visualizations.
+### Deploy to GitHub Pages
 
-Instead of simply providing a numerical answer, Physics Lab aims to show how the result is derived, how the relevant physical quantities relate to each other, and how changing the input parameters affects the system.
+1. Push to `main`
+2. Repo **Settings → Pages → Source: GitHub Actions**
+3. The workflow in `.github/workflows/deploy-pages.yml` builds and deploys automatically
 
----
-
-## Goals
-
-Physics Lab should make it easy to:
-
-- Enter physical parameters and calculate results.
-- Understand the equations behind each calculation.
-- See how equations are derived using derivatives and integrals.
-- Visualize physical systems interactively.
-- Compare different physical quantities on graphs.
-- Experiment with different environments and parameters.
-- Understand the assumptions and limitations behind each model.
-
-The goal is not just to build a collection of calculators, but an interactive physics playground where calculations, equations, simulations, and visualizations are connected.
+The app is configured for a project site at `/Physics-Lab/`.
 
 ---
 
-# Current Scope
+## Project structure
 
-The initial version will focus on motion under gravity:
+```
+Physics-Lab/
+├── packages/
+│   ├── physics-engine/     # Pure TypeScript physics (tested with Vitest)
+│   │   ├── motion/         # Analytical kinematics
+│   │   ├── solve/          # Flexible inverse solver
+│   │   ├── simulation/     # RK4 integrator, comparison helpers
+│   │   ├── impact/         # Impact force models
+│   │   └── forces/         # Gravity, drag
+│   └── web/                # Vite + React UI
+│       └── src/
+│           ├── pages/      # Scenario & compare pages
+│           ├── components/ # Inputs, graphs, simulation
+│           └── hooks/      # URL state, scenario wiring
+└── .github/workflows/      # CI and Pages deploy
+```
 
-1. Free Fall
-2. Vertical Throw
-3. Projectile Motion
-
-These will share common physics components such as gravity, velocity, acceleration, energy, force, and visualization.
-
----
-
-# Motion
-
-## 1. Free Fall
-
-Calculate and visualize an object falling under gravity.
-
-### Inputs
-
-- Initial height
-- Initial velocity
-- Object mass
-- Planet / environment
-- Gravitational acceleration
-- Optional air resistance parameters
-
-### Results
-
-- Time
-- Height / position
-- Velocity
-- Acceleration
-- Impact velocity
-- Kinetic energy
-- Potential energy
-- G-force
-- Impact force
-
-### Visualizations
-
-- Object position over time
-- Velocity over time
-- Acceleration over time
-- Kinetic energy over time
-- Potential energy over time
-- Total mechanical energy over time
-- Optional force graphs
+The physics engine has **no React dependencies** — all calculations are unit-tested independently of the UI.
 
 ---
 
-## 2. Vertical Throw
+## Tech stack
 
-Simulate an object thrown vertically upward or downward.
-
-This should support both:
-
-- Throwing upward
-- Throwing downward
-
-### Inputs
-
-- Initial height
-- Initial velocity
-- Direction
-- Object mass
-- Planet / environment
-- Gravitational acceleration
-- Optional air resistance parameters
-
-### Results
-
-- Time to maximum height
-- Maximum height
-- Time to return to the starting height
-- Time to impact
-- Velocity at any point in time
-- Impact velocity
-- Acceleration
-- Kinetic energy
-- Potential energy
-- G-force
-- Impact force
-
-### Visualizations
-
-- Height vs. time
-- Velocity vs. time
-- Acceleration vs. time
-- Kinetic vs. potential energy
-- Total mechanical energy
-- Object trajectory animation
+- **UI:** React 19, React Router, TypeScript, Vite
+- **Charts:** uPlot
+- **Math:** KaTeX
+- **Tests:** Vitest
+- **Hosting:** GitHub Pages (static)
 
 ---
 
-## 3. Projectile Motion
+## Physics models
 
-Simulate an object launched at an angle.
+### Idealized motion (default)
 
-The standard term for this type of motion is projectile motion.
+- Constant gravitational acceleration *g*
+- Point mass, flat ground at *y* = 0
+- SI units throughout
+- Analytical solutions + flexible inverse solving
 
-### Inputs
+Core equations:
 
-- Initial height
-- Initial velocity
-- Launch angle
-- Object mass
-- Planet / environment
-- Gravitational acceleration
-- Optional air resistance parameters
+```
+y(t) = h₀ + v₀t − ½gt²
+v(t) = v₀ − gt
+Eₖ = ½mv² ,  Eₚ = mgh ,  F_g = mg
+```
 
-### Results
+### With air resistance
 
-- Flight time
-- Horizontal distance
-- Maximum height
-- Impact velocity
-- Impact angle
-- Horizontal velocity
-- Vertical velocity
-- Acceleration
-- Kinetic energy
-- Potential energy
-- G-force
-- Impact force
+```
+F_drag = ½ ρ C_d A v²   (opposes motion)
+```
 
-### Visualizations
+Numerical integration (RK4). Mechanical energy is no longer conserved; the UI shows energy lost to drag.
 
-- 2D trajectory
-- Height vs. horizontal distance
-- Velocity components
-- Velocity magnitude
-- Acceleration
-- Kinetic vs. potential energy
-- Total mechanical energy
-- Animated projectile
+### Impact (optional)
 
-### Optional interactive controls
+```
+F_avg = Δp / Δt          (stopping time)
+F_avg ≈ mv² / (2d)       (stopping distance)
+P = F / A                (pressure)
+```
 
-Allow the user to change parameters and immediately see the trajectory update.
+Assumes uniform deceleration over the stopping interval. Peak forces can be much higher.
 
-For example:
+### Limitations
 
-- Velocity slider
-- Angle slider
-- Height slider
-- Gravity / planet selector
-- Mass input
-- Air resistance toggle
+- Sun uses **surface gravity** only — no orbital mechanics
+- *g* does not vary with altitude
+- No wind, lift, or spin
+- Impact model gives average force, not peak
 
 ---
 
-# Equations and Physics
+## Roadmap
 
-A major goal of Physics Lab is to explain the equations instead of only displaying their results.
+Possible future additions:
 
-Each calculation should show:
+- Springs, pendulums, harmonic motion
+- Elastic / inelastic collisions
+- Unit conversion (mph, ft, etc.)
+- Step-by-step full derivations
+- 3D visualization
 
-- The equation
-- Explanation of each variable
-- Units
-- The values substituted into the equation
-- The resulting calculation
-- Assumptions
-- Where appropriate, the derivation
+See [Issues](https://github.com/JimB99/Physics-Lab/issues) for ideas and bugs.
 
 ---
 
-## Derivatives and Integrals
+## Contributing
 
-Show how the fundamental motion equations relate to each other.
+Contributions welcome. Please run `npm test` and `npm run build` before opening a PR.
 
-For example:
-
-Acceleration is the derivative of velocity:
-
-    a(t) = dv/dt
-
-Integrating acceleration gives velocity:
-
-    v(t) = ∫ a(t) dt
-
-Velocity is the derivative of position:
-
-    v(t) = dh/dt
-
-Integrating velocity gives position:
-
-    h(t) = ∫ v(t) dt
-
-The application should make these relationships visually understandable.
-
-For example:
-
-    Position
-       ↑
-       │ derivative
-       │
-    Velocity
-       ↑
-       │ derivative
-       │
-    Acceleration
-
-And in the opposite direction:
-
-    Acceleration
-       │
-       │ integral
-       ↓
-    Velocity
-       │
-       │ integral
-       ↓
-    Position
+1. Fork the repo
+2. Create a feature branch
+3. Make changes with tests where applicable
+4. Open a pull request
 
 ---
 
-# Gravity
+## License
 
-Gravity should be treated as an environment-dependent parameter rather than being hard-coded to Earth.
-
-## Supported environments
-
-Initially:
-
-- Earth
-- Moon
-- Mars
-
-Eventually:
-
-- Mercury
-- Venus
-- Jupiter
-- Saturn
-- Uranus
-- Neptune
-- Custom
-
-The user should also be able to enter a custom gravitational acceleration.
-
-Example:
-
-    Earth:  9.80665 m/s²
-    Moon:   ~1.62 m/s²
-    Mars:   ~3.71 m/s²
-
-The exact values and conventions should be documented in the application.
-
----
-
-# Energy
-
-Energy should be calculated and visualized where applicable.
-
-## Kinetic Energy
-
-    E_k = 1/2 mv²
-
-Inputs:
-
-- Mass
-- Velocity
-
----
-
-## Gravitational Potential Energy
-
-    E_p = mgh
-
-Inputs:
-
-- Mass
-- Gravitational acceleration
-- Height
-
----
-
-## Mechanical Energy
-
-    E_total = E_k + E_p
-
-For idealized systems without energy loss:
-
-    E_total = constant
-
-The graph should make this conservation of energy visible.
-
-When air resistance is enabled, the application should show that mechanical energy is no longer conserved because energy is transferred into the environment through drag.
-
----
-
-# Forces
-
-## Gravity
-
-    F_g = mg
-
-Show:
-
-- Gravitational force
-- Direction
-- Magnitude
-- Effect on acceleration
-
----
-
-## Air Resistance
-
-Air resistance should eventually be supported as an optional model.
-
-The user should be able to enable or disable it.
-
-Parameters may include:
-
-- Air density
-- Cross-sectional area
-- Drag coefficient
-- Object mass
-- Object shape
-- Velocity
-
-A quadratic drag model can use:
-
-    F_drag = 1/2 ρ C_d A v²
-
-where:
-
-- ρ = air density
-- C_d = drag coefficient
-- A = cross-sectional area
-- v = velocity
-
-The drag force should act opposite to the direction of motion.
-
----
-
-## Object Shape
-
-Eventually, allow the user to select or define an approximate object shape.
-
-Possible presets:
-
-- Sphere
-- Cube
-- Cylinder
-- Flat plate
-- Custom
-
-The shape can be used to determine or suggest an appropriate drag coefficient and cross-sectional area.
-
-Advanced users should be able to manually override the drag coefficient.
-
----
-
-# Impact
-
-Impact calculations should be treated separately from the motion leading up to the impact.
-
-Impact force cannot be determined from mass and impact velocity alone.
-
-The collision model needs additional information such as:
-
-- Stopping time
-- Stopping distance
-- Collision surface
-- Material properties
-- Elasticity / coefficient of restitution
-
-Possible basic models include:
-
-### Momentum-based approximation
-
-    F_avg = Δp / Δt
-
-### Stopping-distance approximation
-
-    F_avg ≈ mv² / (2d)
-
-where:
-
-- m = mass
-- v = impact velocity
-- d = stopping distance
-
-The application should clearly distinguish between average impact force and peak impact force.
-
----
-
-# G-Force
-
-Calculate the acceleration experienced by the object in terms of Earth's standard gravitational acceleration.
-
-    G = a / g₀
-
-where:
-
-    g₀ = 9.80665 m/s²
-
-The application should distinguish between:
-
-- Gravitational acceleration
-- Acceleration during motion
-- G-force during impact
-
-This is important because an object can be in free fall while experiencing approximately 0 g of apparent acceleration despite gravity acting on it.
-
----
-
-# Visualization
-
-Visualization is one of the core features of Physics Lab.
-
-Graphs should update automatically when input parameters change.
-
-Possible graph types include:
-
-## Motion
-
-- Position vs. time
-- Velocity vs. time
-- Acceleration vs. time
-
-## Energy
-
-- Kinetic energy vs. time
-- Potential energy vs. time
-- Total mechanical energy vs. time
-
-## Forces
-
-- Gravity vs. time
-- Air resistance vs. time
-- Net force vs. time
-- Impact force vs. time
-
-## Projectile Motion
-
-- X position vs. Y position
-- Horizontal velocity vs. time
-- Vertical velocity vs. time
-- Velocity magnitude vs. time
-
----
-
-# Interactive Simulation
-
-Where practical, calculations should be accompanied by an animated visualization.
-
-For example, a projectile simulation could display:
-
-- The object moving through space.
-- The trajectory.
-- Current position.
-- Current velocity vector.
-- Current acceleration vector.
-- Current kinetic energy.
-- Current potential energy.
-- Current time.
-
-The user should be able to pause, resume, restart, and potentially scrub through the simulation.
-
----
-
-# Units
-
-The application should use SI units by default.
-
-Primary units:
-
-- Distance: meters (m)
-- Time: seconds (s)
-- Velocity: meters per second (m/s)
-- Acceleration: meters per second squared (m/s²)
-- Mass: kilograms (kg)
-- Force: Newtons (N)
-- Energy: Joules (J)
-- Pressure: Pascals (Pa)
-
-Potential future support:
-
-- km/h
-- mph
-- ft/s
-- feet
-- pounds
-- pounds-force
-- other commonly used units
-
-Unit conversions should be handled separately from the underlying physics calculations.
-
----
-
-# Pressure
-
-Pressure can be added as a later feature.
-
-Potential calculations include:
-
-    P = F / A
-
-where:
-
-- P = pressure
-- F = force
-- A = area
-
-This could be useful for impact scenarios where the user specifies a contact area.
-
-Potential future features:
-
-- Impact pressure
-- Atmospheric pressure
-- Pressure vs. depth
-- Pressure from force over an area
-- Comparison of different contact areas
-
----
-
-# Calculation Models
-
-Physics Lab should distinguish between different levels of physical modeling.
-
-## Idealized Model
-
-Use simplified equations and assumptions.
-
-For example:
-
-- Constant gravity
-- No air resistance
-- Point-like object
-- Flat ground
-- No wind
-- Perfectly known initial conditions
-
-This allows many problems to have simple analytical solutions.
-
----
-
-## Numerical Model
-
-For more complex systems, use numerical simulation.
-
-Examples:
-
-- Air resistance
-- Variable forces
-- Complex collisions
-- Non-constant acceleration
-
-The simulation should calculate the state of the system over small time steps.
-
-This allows Physics Lab to support systems that cannot easily be solved using a simple closed-form equation.
-
----
-
-# Analytical vs. Numerical Solutions
-
-Where possible, show the difference between:
-
-1. Analytical solution
-2. Numerical simulation
-
-For simple systems, the numerical simulation should be able to reproduce the analytical result closely.
-
-This can be used as both a learning tool and a validation mechanism.
-
----
-
-# Assumptions and Accuracy
-
-Every calculation should clearly state its assumptions.
-
-For example:
-
-> This calculation assumes constant gravitational acceleration and ignores air resistance.
-
-When a more complex model is enabled, the assumptions should change accordingly.
-
-The application should avoid presenting simplified physics as universally accurate.
-
----
-
-# Planned Architecture
-
-The application should separate the physics calculations from the user interface.
-
-A rough conceptual architecture:
-
-    UI
-     │
-     ├── Inputs
-     ├── Equations
-     ├── Explanations
-     ├── Graphs
-     └── Animations
-          │
-          ▼
-    Physics Engine
-     │
-     ├── Motion
-     ├── Forces
-     ├── Energy
-     ├── Gravity
-     ├── Drag
-     └── Collision
-          │
-          ▼
-    Simulation State
-
-The physics engine should ideally contain pure calculations that can be tested independently from the UI.
-
-This makes it possible to:
-
-- Unit test calculations
-- Reuse calculations in different visualizations
-- Compare analytical and numerical solutions
-- Add new UI features without rewriting the physics
-- Add new physics models independently
-
----
-
-# Development Roadmap
-
-## Phase 1 — Foundation
-
-- [x] Create web application
-- [x] Establish project structure
-- [x] Establish unit handling
-- [x] Establish physics calculation module
-- [x] Establish testing framework
-- [x] Create reusable input components
-- [x] Create reusable equation display components
-- [x] Create reusable graph components
-
----
-
-## Phase 2 — Basic Motion
-
-- [x] Free fall calculation
-- [x] Vertical throw calculation
-- [x] Projectile motion calculation
-- [x] Position calculations
-- [x] Velocity calculations
-- [x] Acceleration calculations
-- [x] Time calculations
-- [x] Basic validation and edge cases
-
----
-
-## Phase 3 — Equations and Explanations
-
-- [x] Display equations
-- [x] Explain variables
-- [x] Display units
-- [x] Show substituted values
-- [x] Explain derivatives
-- [x] Explain integrals
-- [ ] Show derivation of basic equations
-- [x] Explain assumptions
-
----
-
-## Phase 4 — Visualization
-
-- [x] Position/time graphs
-- [x] Velocity/time graphs
-- [x] Acceleration/time graphs
-- [x] Energy graphs
-- [x] Projectile trajectory
-- [x] Interactive parameter changes
-- [x] Animated simulations
-
----
-
-## Phase 5 — Environment
-
-- [x] Earth
-- [x] Moon
-- [x] Mars
-- [ ] Additional planets
-- [x] Custom gravity
-- [x] Environment-specific parameters
-
----
-
-## Phase 6 — Energy and Forces
-
-- [x] Kinetic energy
-- [x] Potential energy
-- [x] Mechanical energy
-- [x] Gravitational force
-- [x] G-force
-- [x] Energy visualization
-- [x] Force visualization
-
----
-
-## Phase 7 — Impact
-
-- [ ] Impact velocity
-- [ ] Stopping distance model
-- [ ] Stopping time model
-- [ ] Average impact force
-- [ ] Contact area
-- [ ] Impact pressure
-- [ ] Collision assumptions and explanations
-
----
-
-## Phase 8 — Air Resistance
-
-- [ ] Air resistance toggle
-- [ ] Air density
-- [ ] Cross-sectional area
-- [ ] Drag coefficient
-- [ ] Object shape presets
-- [ ] Quadratic drag model
-- [ ] Numerical integration
-- [ ] Terminal velocity
-- [ ] Compare vacuum vs. air resistance
-- [ ] Energy lost to drag
-
----
-
-# Future Ideas
-
-These are not part of the initial scope but may be added later.
-
-## Additional Mechanics
-
-- [ ] Friction
-- [ ] Springs
-- [ ] Hooke's law
-- [ ] Harmonic motion
-- [ ] Pendulums
-- [ ] Circular motion
-- [ ] Centripetal force
-- [ ] Collisions
-- [ ] Elastic and inelastic collisions
-- [ ] Momentum
-- [ ] Rotational motion
-- [ ] Torque
-- [ ] Angular momentum
-
-## Additional Physics
-
-- [ ] Buoyancy
-- [ ] Fluid pressure
-- [ ] Atmospheric pressure
-- [ ] Thermodynamics
-- [ ] Electricity
-- [ ] Magnetism
-- [ ] Waves
-- [ ] Optics
-- [ ] Orbital mechanics
-
----
-
-# Educational Features
-
-Potential features that could make Physics Lab more useful as a learning tool:
-
-- Step-by-step derivations
-- Interactive equations
-- Variable highlighting
-- Unit explanations
-- "Why does this work?" explanations
-- Interactive graphs
-- Compare two scenarios side-by-side
-- Show the effect of changing one variable
-- Show ideal vs. realistic models
-- Show common mistakes
-- Explain assumptions
-- Show dimensional analysis
-- Display significant figures
-- Explain where approximations are being made
-
----
-
-# Comparison Mode
-
-Allow users to compare two or more simulations.
-
-For example:
-
-    Earth vs. Moon
-
-or:
-
-    Vacuum vs. Air Resistance
-
-or:
-
-    30° vs. 45° vs. 60°
-
-The results could be displayed on the same graphs.
-
-This would make differences between physical models immediately visible.
-
----
-
-# Advanced Visualization Ideas
-
-Potential future visualizations:
-
-- Animated 2D simulations
-- 3D simulations
-- Velocity vectors
-- Acceleration vectors
-- Force vectors
-- Energy bars
-- Live numerical values
-- Interactive graphs
-- Timeline scrubbing
-- Particle trails
-- Vector fields
-- Adjustable camera
-- Interactive 3D objects
-
----
-
-# Validation and Testing
-
-Physics calculations should be tested independently from the UI.
-
-Tests should include:
-
-- Known analytical solutions
-- Boundary conditions
-- Zero initial velocity
-- Zero initial height
-- Negative initial velocity
-- Different gravitational accelerations
-- Extreme values
-- Unit conversions
-- Air resistance disabled
-- Air resistance enabled
-- Numerical vs. analytical comparisons
-
-For numerical simulations, test that decreasing the timestep converges toward the expected analytical solution where one exists.
-
----
-
-# Design Principles
-
-Physics Lab should follow these principles:
-
-1. **Understandable**
-
-   Results should be understandable to someone who knows basic physics.
-
-2. **Transparent**
-
-   Do not hide the equations behind a black-box calculator.
-
-3. **Interactive**
-
-   Users should be able to experiment with parameters and immediately see the effects.
-
-4. **Physically Honest**
-
-   Clearly communicate assumptions, approximations, and limitations.
-
-5. **Modular**
-
-   Physics calculations should be separated from visualization and UI code.
-
-6. **Extensible**
-
-   New physics models should be easy to add without rewriting existing functionality.
-
-7. **Testable**
-
-   Physics calculations should be independently testable and validated against known results.
-
----
-
-# License
-
-This project is licensed under the MIT License.
+[MIT](LICENSE)

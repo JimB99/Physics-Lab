@@ -1,12 +1,12 @@
-import type { PlanetId } from 'physics-engine';
+import type { CelestialBodyId } from 'physics-engine';
 import { NumberField } from './NumberField';
 import { PlanetSelector } from './PlanetSelector';
 
 interface EnvironmentPanelProps {
-  planet: PlanetId;
+  planet: CelestialBodyId;
   customG: number;
   mass: number;
-  onPlanetChange: (planet: PlanetId) => void;
+  onPlanetChange: (planet: CelestialBodyId) => void;
   onCustomGChange: (g: number) => void;
   onMassChange: (mass: number) => void;
 }

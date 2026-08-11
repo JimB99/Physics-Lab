@@ -15,6 +15,12 @@ export function HomePage() {
             Free fall, vertical throw, and projectile motion with graphs, equations, and animation.
           </p>
         </Link>
+        <Link to="/compare" className="card" style={{ display: 'block' }}>
+          <h2 style={{ margin: '0 0 0.5rem' }}>Comparison Mode</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            Compare Earth vs Moon, vacuum vs drag, or different launch angles side by side.
+          </p>
+        </Link>
       </div>
     </div>
   );

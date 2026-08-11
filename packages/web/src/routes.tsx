@@ -5,6 +5,7 @@ import { MotionHubPage } from './pages/MotionHubPage';
 import { FreeFallPage } from './pages/FreeFallPage';
 import { VerticalThrowPage } from './pages/VerticalThrowPage';
 import { ProjectilePage } from './pages/ProjectilePage';
+import { ComparePage } from './pages/ComparePage';
 
 export const routes: RouteObject[] = [
   {
@@ -16,6 +17,7 @@ export const routes: RouteObject[] = [
       { path: 'motion/free-fall', element: <FreeFallPage /> },
       { path: 'motion/vertical-throw', element: <VerticalThrowPage /> },
       { path: 'motion/projectile', element: <ProjectilePage /> },
+      { path: 'compare', element: <ComparePage /> },
     ],
   },
 ];

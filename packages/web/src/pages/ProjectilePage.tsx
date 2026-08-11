@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react';
-import type { PlanetId } from 'physics-engine';
+import { useSearchParams } from 'react-router-dom';
+import type { CelestialBodyId, ImpactModel } from 'physics-engine';
 import { WorkspaceLayout } from '../components/layout/WorkspaceLayout';
 import { EnvironmentPanel } from '../components/inputs/EnvironmentPanel';
+import { DragPanel, type DragSettings } from '../components/inputs/DragPanel';
+import { ImpactPanel } from '../components/inputs/ImpactPanel';
 import { SolvableField } from '../components/inputs/SolvableField';
 import { ResultsPanel } from '../components/results/ResultsPanel';
 import { SimulationCanvas } from '../components/simulation/SimulationCanvas';
 import { WorkspaceTabs } from '../components/WorkspaceTabs';
 import { useScenarioParams } from '../hooks/useScenarioParams';
 import { useMotionScenario } from '../hooks/useMotionScenario';
+import { DEFAULT_DRAG } from '../lib/scenarioDefaults';
 
 const PROJECTILE_FIELDS = [
   'h0', 'v0', 'angle', 't', 'x', 'y', 'range', 'flightTime',
@@ -45,17 +49,61 @@ const DEFAULT_MODES: Record<string, 'given' | 'solve'> = {
 };
 
 export function ProjectilePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const fullDefaults = useMemo(() => {
     const numeric = Object.fromEntries(PROJECTILE_FIELDS.map((f) => [f, FIELD_LABELS[f]!.default]));
     return {
       ...numeric,
-      planet: 'earth' as PlanetId,
+      planet: 'earth' as CelestialBodyId,
       customG: 9.80665,
       mass: 1,
     } as Record<string, number | string>;
   }, []);
 
   const [values, urlModes, setValue, setMode] = useScenarioParams(fullDefaults);
+
+  const dragSettings: DragSettings = useMemo(
+    () => ({
+      enabled: searchParams.get('drag') === '1',
+      atmospherePreset: (searchParams.get('atmosphere') as DragSettings['atmospherePreset']) || DEFAULT_DRAG.atmospherePreset,
+      customRho: parseFloat(searchParams.get('rho') || String(DEFAULT_DRAG.customRho)),
+      shape: (searchParams.get('shape') as DragSettings['shape']) || DEFAULT_DRAG.shape,
+      cd: parseFloat(searchParams.get('cd') || String(DEFAULT_DRAG.cd)),
+      area: parseFloat(searchParams.get('area') || String(DEFAULT_DRAG.area)),
+    }),
+    [searchParams],
+  );
+
+  const setDragSettings = (s: DragSettings) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('drag', s.enabled ? '1' : '0');
+        next.set('atmosphere', s.atmospherePreset);
+        next.set('rho', String(s.customRho));
+        next.set('shape', s.shape);
+        next.set('cd', String(s.cd));
+        next.set('area', String(s.area));
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const impactEnabled = searchParams.get('impact') === '1';
+  const impactModel = (searchParams.get('impactModel') as ImpactModel) || 'stoppingTime';
+  const stoppingTime = parseFloat(searchParams.get('stoppingTime') || '0.01');
+  const stoppingDistance = parseFloat(searchParams.get('stoppingDistance') || '0.05');
+  const contactArea = parseFloat(searchParams.get('contactArea') || '0');
+
+  const setImpactParam = (key: string, val: string | number | boolean) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set(key, String(val));
+      return next;
+    }, { replace: true });
+  };
 
   const modes = useMemo(() => {
     const m = { ...DEFAULT_MODES };
@@ -65,7 +113,7 @@ export function ProjectilePage() {
     return m;
   }, [urlModes]);
 
-  const planet = (values.planet as PlanetId) ?? 'earth';
+  const planet = (values.planet as CelestialBodyId) ?? 'earth';
   const customG = Number(values.customG) || 9.80665;
   const mass = Number(values.mass) || 1;
 
@@ -77,20 +125,30 @@ export function ProjectilePage() {
     customG,
     mass,
     fieldIds: [...PROJECTILE_FIELDS],
+    dragSettings,
   });
 
   const [highlightTime, setHighlightTime] = useState<number | undefined>();
 
   const solved = scenario.solveResult.status === 'solved' ? scenario.solveResult.values : {};
 
-  const error =
-    scenario.solveResult.status !== 'solved' ? scenario.solveResult.message : undefined;
+  const error = scenario.dragEnabled
+    ? undefined
+    : scenario.solveResult.status !== 'solved'
+      ? scenario.solveResult.message
+      : undefined;
 
   const resultItems = PROJECTILE_FIELDS.filter((f) => modes[f] === 'solve').map((f) => ({
     label: FIELD_LABELS[f]!.label,
     value: solved[f],
     unit: FIELD_LABELS[f]!.unit,
   }));
+
+  if (scenario.dragEnabled && scenario.energyLost !== undefined) {
+    resultItems.push({ label: 'Energy lost to drag', value: scenario.energyLost, unit: 'J' });
+  }
+
+  const impactSpeed = scenario.summary ? Math.abs(scenario.summary.impactVelocity) : undefined;
 
   return (
     <WorkspaceLayout
@@ -108,7 +166,22 @@ export function ProjectilePage() {
             onCustomGChange={(g) => setValue('customG', g)}
             onMassChange={(m) => setValue('mass', m)}
           />
-          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Problem fields</h3>
+          <DragPanel settings={dragSettings} mass={mass} g={scenario.env.g} onChange={setDragSettings} />
+          <ImpactPanel
+            enabled={impactEnabled}
+            model={impactModel}
+            stoppingTime={stoppingTime}
+            stoppingDistance={stoppingDistance}
+            contactArea={contactArea}
+            impactSpeed={impactSpeed}
+            mass={mass}
+            onEnabledChange={(v) => setImpactParam('impact', v ? '1' : '0')}
+            onModelChange={(m) => setImpactParam('impactModel', m)}
+            onStoppingTimeChange={(v) => setImpactParam('stoppingTime', v)}
+            onStoppingDistanceChange={(v) => setImpactParam('stoppingDistance', v)}
+            onContactAreaChange={(v) => setImpactParam('contactArea', v)}
+          />
+          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', marginTop: '1rem' }}>Problem fields</h3>
           {PROJECTILE_FIELDS.map((f) => (
             <SolvableField
               key={f}
@@ -130,16 +203,21 @@ export function ProjectilePage() {
           isProjectile
           highlightTime={highlightTime}
           onTimeChange={setHighlightTime}
+          flightTime={scenario.summary?.flightTime}
         />
       }
       results={<ResultsPanel items={resultItems} error={error} hint={`g = ${scenario.env.g} m/s²`} />}
       tabs={
         <WorkspaceTabs
           samples={scenario.samples}
+          vacuumSamples={scenario.vacuumSamples}
           solveResult={scenario.solveResult}
           isProjectile
           g={scenario.env.g}
           mass={scenario.env.mass}
+          planet={planet}
+          dragEnabled={scenario.dragEnabled}
+          impactEnabled={impactEnabled}
         />
       }
     />

@@ -1,8 +1,14 @@
-export { G0, PLANET_GRAVITY, resolveGravity } from './constants';
+export { G0, CELESTIAL_BODIES, CELESTIAL_BODY_MAP, PLANET_GRAVITY, getCelestialBody, resolveGravity } from './constants';
 export * from './types';
 export * from './units';
 export * from './energy/mechanical';
 export * from './forces/gravity';
+export * from './forces/drag';
+export * from './environment/atmosphere';
+export * from './simulation/shapes';
+export * from './simulation/integrator';
+export * from './simulation/compare';
+export * from './impact';
 export * from './motion/kinematics';
 export * from './motion/free-fall';
 export * from './motion/vertical-throw';
