@@ -2,6 +2,41 @@
 
 Interactive physics calculations, simulations, equations, and visualizations.
 
+## Implementation Status
+
+**Last completed stage:** Stage 7 — Environment, Energy, and Forces  
+**Live site:** https://\<user\>.github.io/Physics-Lab/ (after enabling GitHub Pages)
+
+| README Phase / Section | Status |
+|------------------------|--------|
+| Phase 1 — Foundation | Complete |
+| Phase 2 — Basic Motion | Complete |
+| Phase 3 — Equations and Explanations | Complete |
+| Phase 4 — Visualization | Complete |
+| Interactive Simulation | Complete |
+| Phase 5 — Environment | Complete |
+| Phase 6 — Energy and Forces | Complete |
+| Phase 7 — Impact | Not started |
+| Phase 8 — Air Resistance | Not started |
+| Future Ideas, Comparison Mode | Not started |
+
+### Not yet implemented
+
+- Phase 7 — Impact (stopping distance/time, impact force models)
+- Phase 8 — Air resistance (numerical integration, terminal velocity)
+- Comparison Mode, 3D visualization, additional physics topics (see Future Ideas)
+
+### Local development
+
+```bash
+npm install
+npm test
+npm run dev
+npm run build
+```
+
+---
+
 Physics Lab is a web application for exploring physics through interactive calculations and visualizations.
 
 Instead of simply providing a numerical answer, Physics Lab aims to show how the result is derived, how the relevant physical quantities relate to each other, and how changing the input parameters affects the system.
@@ -652,75 +687,75 @@ This makes it possible to:
 
 ## Phase 1 — Foundation
 
-- [ ] Create web application
-- [ ] Establish project structure
-- [ ] Establish unit handling
-- [ ] Establish physics calculation module
-- [ ] Establish testing framework
-- [ ] Create reusable input components
-- [ ] Create reusable equation display components
-- [ ] Create reusable graph components
+- [x] Create web application
+- [x] Establish project structure
+- [x] Establish unit handling
+- [x] Establish physics calculation module
+- [x] Establish testing framework
+- [x] Create reusable input components
+- [x] Create reusable equation display components
+- [x] Create reusable graph components
 
 ---
 
 ## Phase 2 — Basic Motion
 
-- [ ] Free fall calculation
-- [ ] Vertical throw calculation
-- [ ] Projectile motion calculation
-- [ ] Position calculations
-- [ ] Velocity calculations
-- [ ] Acceleration calculations
-- [ ] Time calculations
-- [ ] Basic validation and edge cases
+- [x] Free fall calculation
+- [x] Vertical throw calculation
+- [x] Projectile motion calculation
+- [x] Position calculations
+- [x] Velocity calculations
+- [x] Acceleration calculations
+- [x] Time calculations
+- [x] Basic validation and edge cases
 
 ---
 
 ## Phase 3 — Equations and Explanations
 
-- [ ] Display equations
-- [ ] Explain variables
-- [ ] Display units
-- [ ] Show substituted values
-- [ ] Explain derivatives
-- [ ] Explain integrals
+- [x] Display equations
+- [x] Explain variables
+- [x] Display units
+- [x] Show substituted values
+- [x] Explain derivatives
+- [x] Explain integrals
 - [ ] Show derivation of basic equations
-- [ ] Explain assumptions
+- [x] Explain assumptions
 
 ---
 
 ## Phase 4 — Visualization
 
-- [ ] Position/time graphs
-- [ ] Velocity/time graphs
-- [ ] Acceleration/time graphs
-- [ ] Energy graphs
-- [ ] Projectile trajectory
-- [ ] Interactive parameter changes
-- [ ] Animated simulations
+- [x] Position/time graphs
+- [x] Velocity/time graphs
+- [x] Acceleration/time graphs
+- [x] Energy graphs
+- [x] Projectile trajectory
+- [x] Interactive parameter changes
+- [x] Animated simulations
 
 ---
 
 ## Phase 5 — Environment
 
-- [ ] Earth
-- [ ] Moon
-- [ ] Mars
+- [x] Earth
+- [x] Moon
+- [x] Mars
 - [ ] Additional planets
-- [ ] Custom gravity
-- [ ] Environment-specific parameters
+- [x] Custom gravity
+- [x] Environment-specific parameters
 
 ---
 
 ## Phase 6 — Energy and Forces
 
-- [ ] Kinetic energy
-- [ ] Potential energy
-- [ ] Mechanical energy
-- [ ] Gravitational force
-- [ ] G-force
-- [ ] Energy visualization
-- [ ] Force visualization
+- [x] Kinetic energy
+- [x] Potential energy
+- [x] Mechanical energy
+- [x] Gravitational force
+- [x] G-force
+- [x] Energy visualization
+- [x] Force visualization
 
 ---
 

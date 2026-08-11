@@ -1,0 +1,21 @@
+import { Link } from 'react-router-dom';
+
+export function HomePage() {
+  return (
+    <div style={{ padding: '2rem 1.5rem', maxWidth: 800, margin: '0 auto' }}>
+      <h1>Physics Lab</h1>
+      <p>
+        Interactive physics calculations, simulations, equations, and visualizations.
+        Enter what you know — the app solves for the rest.
+      </p>
+      <div style={{ display: 'grid', gap: '1rem', marginTop: '2rem' }}>
+        <Link to="/motion" className="card" style={{ display: 'block' }}>
+          <h2 style={{ margin: '0 0 0.5rem' }}>Motion under gravity</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            Free fall, vertical throw, and projectile motion with graphs, equations, and animation.
+          </p>
+        </Link>
+      </div>
+    </div>
+  );
+}

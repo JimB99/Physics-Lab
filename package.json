@@ -1,0 +1,13 @@
+{
+  "name": "physics-lab",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "test": "npm run test -w physics-engine",
+    "preview": "npm run preview -w web"
+  }
+}
