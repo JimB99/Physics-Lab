@@ -1,0 +1,59 @@
+import type { DateParts } from './types';
+
+export function parseDateParts(day: number, month: number, year: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
+export function formatDateParts(date: Date): DateParts {
+  return {
+    day: date.getUTCDate(),
+    month: date.getUTCMonth() + 1,
+    year: date.getUTCFullYear(),
+  };
+}
+
+export function formatDateString(date: Date): string {
+  const { day, month, year } = formatDateParts(date);
+  return `${day}.${month}.${year}`;
+}
+
+export function addDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+export function validateDateParts(day: number, month: number, year: number): string | null {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+    return 'Date components must be integers';
+  }
+  if (month < 1 || month > 12) return 'Month must be between 1 and 12';
+  if (day < 1 || day > 31) return 'Day must be between 1 and 31';
+  if (year < 1) return 'Year must be positive';
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return 'Invalid calendar date';
+  }
+  return null;
+}
+
+export function compareDates(a: Date, b: Date): number {
+  return a.getTime() - b.getTime();
+}
+
+export function isBefore(a: Date, b: Date): boolean {
+  return compareDates(a, b) < 0;
+}
+
+export function enumerateDates(start: Date, endExclusive: Date, stepDays: number): Date[] {
+  if (stepDays < 1) throw new Error('Step size must be at least 1 day');
+  const dates: Date[] = [];
+  for (let current = new Date(start.getTime()); isBefore(current, endExclusive); current = addDays(current, stepDays)) {
+    dates.push(new Date(current.getTime()));
+  }
+  return dates;
+}

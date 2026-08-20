@@ -1,5 +1,7 @@
 import type { CelestialBodyId } from 'physics-engine';
 import { CELESTIAL_BODIES } from 'physics-engine';
+import { Link } from 'react-router-dom';
+import { buildPlanetCalendarLink } from '../../hooks/usePlanetCalendarParams';
 
 interface PlanetSelectorProps {
   planet: CelestialBodyId;
@@ -49,9 +51,14 @@ export function PlanetSelector({ planet, customG, onPlanetChange, onCustomGChang
         </optgroup>
         <option value="custom">Custom</option>
       </select>
+      {planet !== 'custom' && planet !== 'moon' && (
+        <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+          <Link to={buildPlanetCalendarLink({ highlight: planet })}>View orbital position →</Link>
+        </p>
+      )}
       {planet === 'sun' && (
-        <p className="muted" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
-          Uses surface gravity (274 m/s²). Orbital mechanics not modeled.
+        <p className="muted" style={{ fontSize: '0.8rem', marginTop: '0.35rem' }}>
+          Motion scenarios use surface gravity (274 m/s²). See Solar System for heliocentric orbits.
         </p>
       )}
       {planet === 'custom' && (

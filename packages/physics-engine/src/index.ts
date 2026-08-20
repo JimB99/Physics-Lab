@@ -17,3 +17,4 @@ export type { FieldMode, FieldSpec, SolveStatus, SolveStep, Vertical1DFieldId, P
 export { approxEqual } from './solve/types';
 export { solveVertical1D, resolvedVertical1DInputs } from './solve/vertical-1d';
 export { solveProjectile, resolvedProjectileInputs } from './solve/projectile';
+export * from './orbital';

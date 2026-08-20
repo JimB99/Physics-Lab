@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   computeComparisonTrajectories,
   resolveGravity,
   resolveAtmosphere,
+  todayUtcDate,
   type ComparisonVariant,
 } from 'physics-engine';
 import { CompareConfigurator } from '../components/compare/CompareConfigurator';
 import { CompareGraphs } from '../components/compare/CompareGraphs';
+import { CompareOrbitPanel } from '../components/compare/CompareOrbitPanel';
 import { CompareSimulation } from '../components/compare/CompareSimulation';
 import {
   COMPARE_COLORS,
@@ -61,7 +63,7 @@ function buildVariants(
 }
 
 export function ComparePage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [scenario, setScenario] = useState<CompareScenario>(
     (searchParams.get('scenario') as CompareScenario) || 'vertical1d',
   );
@@ -69,6 +71,29 @@ export function ComparePage() {
     (searchParams.get('type') as CompareType) || 'environment',
   );
   const [variants, setVariants] = useState<VariantConfig[]>(DEFAULT_VARIANTS);
+
+  const orbitDate = useMemo(() => {
+    const param = searchParams.get('orbitDate');
+    if (!param) return todayUtcDate();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(param);
+    if (!match) return todayUtcDate();
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0));
+  }, [searchParams]);
+
+  const setOrbitDate = useCallback(
+    (date: Date) => {
+      const value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('orbitDate', value);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const comparisonVariants = useMemo(
     () => buildVariants(variants, scenario, compareType),
@@ -133,6 +158,12 @@ export function ComparePage() {
         <h2 style={{ fontSize: '1.1rem' }}>Graphs</h2>
         <CompareGraphs series={series} isProjectile={scenario === 'projectile'} />
       </div>
+
+      <CompareOrbitPanel
+        orbitDate={orbitDate}
+        onDateChange={setOrbitDate}
+        planets={variants.map((v) => v.planet)}
+      />
     </div>
   );
 }

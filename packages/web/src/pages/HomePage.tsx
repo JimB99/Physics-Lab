@@ -21,6 +21,12 @@ export function HomePage() {
             Compare Earth vs Moon, vacuum vs drag, or different launch angles side by side.
           </p>
         </Link>
+        <Link to="/solar-system" className="card" style={{ display: 'block' }}>
+          <h2 style={{ margin: '0 0 0.5rem' }}>Solar System</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            Planet calendar, moon phases, fast cluster search, and orbital animation (VSOP87).
+          </p>
+        </Link>
       </div>
     </div>
   );

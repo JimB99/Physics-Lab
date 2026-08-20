@@ -58,7 +58,17 @@ Clearly labeled as **average** force, not peak.
 - **Drag** — vacuum vs air resistance
 - **Angle** — different launch angles (projectile)
 
-Shared graphs and multi-object simulation.
+Shared graphs and multi-object simulation. Optional **Orbit date** panel shows each variant planet’s heliocentric longitude and distance (URL param `orbitDate=YYYY-MM-DD`).
+
+### Solar system
+
+| Module | Route | Description |
+|--------|-------|-------------|
+| Planet Calendar | `/solar-system/planet-calendar` | VSOP87 heliocentric positions, fast cluster finder, animation |
+| Moon Phases | `/solar-system/moon-phases` | Lunar phase, illumination, upcoming quarter events |
+| Solar System hub | `/solar-system` | Entry point for orbital modules |
+
+Heliocentric positions use **astronomy-engine** (VSOP87) in the browser. Cluster and pair searches use fixed-budget numerical optimization (not day-by-day scans). Solar-system routes are lazy-loaded to keep the main bundle smaller.
 
 ### Equations & visualization
 
@@ -106,7 +116,8 @@ Physics-Lab/
 │   │   ├── solve/          # Flexible inverse solver
 │   │   ├── simulation/     # RK4 integrator, comparison helpers
 │   │   ├── impact/         # Impact force models
-│   │   └── forces/         # Gravity, drag
+│   │   ├── forces/         # Gravity, drag
+│   │   └── orbital/        # VSOP87 solar-system positions & alignment
 │   └── web/                # Vite + React UI
 │       └── src/
 │           ├── pages/      # Scenario & compare pages
@@ -124,6 +135,7 @@ The physics engine has **no React dependencies** — all calculations are unit-t
 - **UI:** React 19, React Router, TypeScript, Vite
 - **Charts:** uPlot
 - **Math:** KaTeX
+- **Ephemeris:** astronomy-engine (VSOP87)
 - **Tests:** Vitest
 - **Hosting:** GitHub Pages (static)
 
@@ -166,8 +178,9 @@ Assumes uniform deceleration over the stopping interval. Peak forces can be much
 
 ### Limitations
 
-- Sun uses **surface gravity** only — no orbital mechanics
-- *g* does not vary with altitude
+- Motion scenarios: Sun uses **surface gravity** only — no orbital mechanics in those models
+- Solar System module: heliocentric VSOP87 positions; Moon/Pluto not shown in planet calendar
+- *g* does not vary with altitude in motion scenarios
 - No wind, lift, or spin
 - Impact model gives average force, not peak
 
@@ -177,6 +190,7 @@ Assumes uniform deceleration over the stopping interval. Peak forces can be much
 
 Possible future additions:
 
+- Moon phases and conjunction presets
 - Springs, pendulums, harmonic motion
 - Elastic / inelastic collisions
 - Unit conversion (mph, ft, etc.)
