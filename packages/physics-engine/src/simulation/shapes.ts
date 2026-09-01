@@ -14,7 +14,3 @@ export const SHAPE_PRESETS: ShapePreset[] = [
   { id: 'flatPlate', label: 'Flat plate', cd: 1.28, note: 'Perpendicular to flow' },
   { id: 'custom', label: 'Custom', cd: 1.0, note: 'Manual Cd override' },
 ];
-
-export function getShapeCd(id: ShapePresetId): number {
-  return SHAPE_PRESETS.find((s) => s.id === id)?.cd ?? 1.0;
-}

@@ -3,6 +3,9 @@ import { ORBITAL_BODIES } from './bodies';
 import { heliocentricEcliptic } from './ephemeris';
 import type { DisplayScaleMode, PlanetPosition, SolarSystemSnapshot } from './types';
 
+/** Sun-relative radius used in log mode; 0.05 AU floor keeps log() finite. */
+const LOG_FLOOR_AU = 0.05;
+
 function toDisplayCoordinates(
   state: ReturnType<typeof heliocentricEcliptic>,
   schematicRadius: number,
@@ -17,6 +20,17 @@ function toDisplayCoordinates(
   }
 
   const angle = degToRad(state.longitudeDeg);
+
+  if (scaleMode === 'log') {
+    const radius =
+      state.distanceAu <= 0 ? 0 : Math.log10(Math.max(state.distanceAu, LOG_FLOOR_AU) / LOG_FLOOR_AU);
+    return {
+      displayX: radius * Math.cos(angle),
+      displayY: radius * Math.sin(angle),
+      orbitDisplayRadius: radius,
+    };
+  }
+
   return {
     displayX: schematicRadius * Math.cos(angle),
     displayY: schematicRadius * Math.sin(angle),

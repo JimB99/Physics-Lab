@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   computeComparisonTrajectories,
@@ -11,14 +11,18 @@ import { CompareConfigurator } from '../components/compare/CompareConfigurator';
 import { CompareGraphs } from '../components/compare/CompareGraphs';
 import { CompareOrbitPanel } from '../components/compare/CompareOrbitPanel';
 import { CompareSimulation } from '../components/compare/CompareSimulation';
+import { CompareSummaryTable } from '../components/compare/CompareSummaryTable';
 import {
-  COMPARE_COLORS,
-  DEFAULT_VARIANTS,
+  nextVariantId,
+  planetLabel,
+  variantColor,
   type CompareScenario,
   type CompareType,
   type VariantConfig,
 } from '../lib/compareDefaults';
 import { DEFAULT_DRAG } from '../lib/scenarioDefaults';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useCompareParams } from '../hooks/useCompareParams';
 
 function buildVariants(
   configs: VariantConfig[],
@@ -45,10 +49,12 @@ function buildVariants(
         ? { h0: c.h0, v0: c.v0, angleDeg: c.angle }
         : { h0: c.h0, v0: c.v0 };
 
-    let label = c.label;
-    if (compareType === 'environment') label = c.planet.charAt(0).toUpperCase() + c.planet.slice(1);
-    if (compareType === 'drag') label = dragEnabled ? 'With drag' : 'Vacuum';
-    if (compareType === 'angle') label = `${c.angle}°`;
+    const label =
+      compareType === 'environment'
+        ? planetLabel(c.planet)
+        : compareType === 'drag'
+          ? `${c.id.toUpperCase()} · ${dragEnabled ? 'with drag' : 'vacuum'}`
+          : `${c.angle}°`;
 
     return {
       id: c.id,
@@ -63,14 +69,9 @@ function buildVariants(
 }
 
 export function ComparePage() {
+  useDocumentTitle('Comparison Mode');
   const [searchParams, setSearchParams] = useSearchParams();
-  const [scenario, setScenario] = useState<CompareScenario>(
-    (searchParams.get('scenario') as CompareScenario) || 'vertical1d',
-  );
-  const [compareType, setCompareType] = useState<CompareType>(
-    (searchParams.get('type') as CompareType) || 'environment',
-  );
-  const [variants, setVariants] = useState<VariantConfig[]>(DEFAULT_VARIANTS);
+  const [{ scenario, compareType, variants }, setCompareParams] = useCompareParams();
 
   const orbitDate = useMemo(() => {
     const param = searchParams.get('orbitDate');
@@ -106,29 +107,34 @@ export function ComparePage() {
   );
 
   const updateVariant = (id: string, partial: Partial<VariantConfig>) => {
-    setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, ...partial } : v)));
+    setCompareParams({
+      variants: variants.map((v) => (v.id === id ? { ...v, ...partial } : v)),
+    });
   };
 
   const addVariant = () => {
     if (variants.length >= 3) return;
-    setVariants((prev) => [
-      ...prev,
-      {
-        id: 'c',
-        label: 'Variant C',
-        color: COMPARE_COLORS[2]!,
-        planet: 'mars',
-        customG: 3.71,
-        h0: 10,
-        v0: 0,
-        angle: 60,
-        dragEnabled: true,
-      },
-    ]);
+    const id = nextVariantId(variants);
+    setCompareParams({
+      variants: [
+        ...variants,
+        {
+          id,
+          label: `Variant ${id.toUpperCase()}`,
+          color: variantColor(variants.length),
+          planet: 'mars',
+          customG: 3.71,
+          h0: variants[0]?.h0 ?? 10,
+          v0: variants[0]?.v0 ?? 0,
+          angle: compareType === 'angle' ? 60 : (variants[0]?.angle ?? 45),
+          dragEnabled: compareType === 'drag',
+        },
+      ],
+    });
   };
 
   const removeVariant = (id: string) => {
-    setVariants((prev) => prev.filter((v) => v.id !== id));
+    setCompareParams({ variants: variants.filter((v) => v.id !== id) });
   };
 
   return (
@@ -141,8 +147,13 @@ export function ComparePage() {
           scenario={scenario}
           compareType={compareType}
           variants={variants}
-          onScenarioChange={setScenario}
-          onCompareTypeChange={setCompareType}
+          onScenarioChange={(next) =>
+            setCompareParams({
+              scenario: next,
+              compareType: next === 'vertical1d' && compareType === 'angle' ? 'environment' : compareType,
+            })
+          }
+          onCompareTypeChange={(next) => setCompareParams({ compareType: next })}
           onVariantChange={updateVariant}
           onAddVariant={addVariant}
           onRemoveVariant={removeVariant}
@@ -152,6 +163,11 @@ export function ComparePage() {
       <div className="card" style={{ marginTop: '1rem' }}>
         <h2 style={{ fontSize: '1.1rem' }}>Simulation</h2>
         <CompareSimulation series={series} isProjectile={scenario === 'projectile'} />
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h2 style={{ fontSize: '1.1rem' }}>Summary</h2>
+        <CompareSummaryTable series={series} isProjectile={scenario === 'projectile'} />
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>

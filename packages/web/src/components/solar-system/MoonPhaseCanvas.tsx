@@ -1,11 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { MoonPhaseInfo } from 'physics-engine';
+import { moonDiskGeometry } from 'physics-engine';
 
 interface MoonPhaseCanvasProps {
   phase: MoonPhaseInfo;
+  size?: number;
 }
 
-export function MoonPhaseCanvas({ phase }: MoonPhaseCanvasProps) {
+const SHADOW = '#1a2332';
+const SURFACE = '#f5f3ce';
+const LIMB = '#8b9cb3';
+
+export function MoonPhaseCanvas({ phase, size = 240 }: MoonPhaseCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -14,58 +20,49 @@ export function MoonPhaseCanvas({ phase }: MoonPhaseCanvasProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
 
-    const cx = w / 2;
-    const cy = h / 2;
-    const radius = Math.min(w, h) * 0.35;
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = size * 0.35;
+    const geometry = moonDiskGeometry(phase.phaseAngleDeg);
+    const a = r * geometry.terminatorAxisRatio;
+    const { litOnRight, gibbous } = geometry;
 
-    ctx.fillStyle = '#2d3a4f';
+    ctx.fillStyle = SHADOW;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#f5f3ce';
+    ctx.fillStyle = SURFACE;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    const lit = phase.illuminationFraction;
-    const angle = ((phase.phaseAngleDeg - 90) * Math.PI) / 180;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = '#2d3a4f';
-    if (lit < 0.5) {
-      const offset = radius * (1 - lit * 2);
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(angle) * offset, cy + Math.sin(angle) * offset, radius, 0, Math.PI * 2);
-      ctx.fill();
+    if (litOnRight) {
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+      ctx.ellipse(cx, cy, a, r, 0, Math.PI / 2, -Math.PI / 2, !gibbous);
     } else {
-      const offset = radius * ((lit - 0.5) * 2);
-      ctx.beginPath();
-      ctx.arc(cx - Math.cos(angle) * offset, cy - Math.sin(angle) * offset, radius, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
+      ctx.ellipse(cx, cy, a, r, 0, -Math.PI / 2, Math.PI / 2, !gibbous);
     }
-    ctx.restore();
+    ctx.closePath();
+    ctx.fill();
 
-    ctx.strokeStyle = '#8b9cb3';
+    ctx.strokeStyle = LIMB;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
-  }, [phase]);
+  }, [phase, size]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={240}
-      height={240}
-      style={{ display: 'block', margin: '0 auto' }}
-      aria-label={`Moon phase: ${phase.name}`}
+      role="img"
+      style={{ display: 'block', margin: '0 auto', width: size, height: size }}
+      aria-label={`${phase.name}, ${(phase.illuminationFraction * 100).toFixed(0)} percent illuminated`}
     />
   );
 }

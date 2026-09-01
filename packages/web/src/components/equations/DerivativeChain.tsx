@@ -4,8 +4,13 @@ import { EquationBlock } from './EquationBlock';
 export function DerivativeChain() {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-      <button type="button" onClick={() => setOpen(!open)} style={{ marginBottom: '0.5rem' }}>
+    <div className="panel-section">
+      <button
+        type="button"
+        className="disclosure"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         {open ? '▼' : '▶'} Derivatives and integrals
       </button>
       {open && (

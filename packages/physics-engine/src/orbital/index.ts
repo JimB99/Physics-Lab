@@ -7,3 +7,4 @@ export * from './search';
 export * from './alignment';
 export * from './presets';
 export * from './moon';
+export * from './moon-disk';

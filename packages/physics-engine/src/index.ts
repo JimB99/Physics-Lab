@@ -1,4 +1,4 @@
-export { G0, CELESTIAL_BODIES, CELESTIAL_BODY_MAP, PLANET_GRAVITY, getCelestialBody, resolveGravity } from './constants';
+export { G0, CELESTIAL_BODIES, CELESTIAL_BODY_MAP, getCelestialBody, resolveGravity } from './constants';
 export * from './types';
 export * from './units';
 export * from './energy/mechanical';
@@ -8,10 +8,10 @@ export * from './environment/atmosphere';
 export * from './simulation/shapes';
 export * from './simulation/integrator';
 export * from './simulation/compare';
+export * from './simulation/summary';
 export * from './impact';
 export * from './motion/kinematics';
 export * from './motion/free-fall';
-export * from './motion/vertical-throw';
 export * from './motion/projectile';
 export type { FieldMode, FieldSpec, SolveStatus, SolveStep, Vertical1DFieldId, ProjectileFieldId } from './solve/types';
 export { approxEqual } from './solve/types';

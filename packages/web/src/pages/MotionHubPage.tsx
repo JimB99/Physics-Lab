@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const scenarios = [
-  { to: '/motion/free-fall', title: 'Free Fall', desc: 'Drop or fall from height' },
-  { to: '/motion/vertical-throw', title: 'Vertical Throw', desc: 'Throw up or down' },
-  { to: '/motion/projectile', title: 'Projectile Motion', desc: 'Launch at an angle' },
+  { to: '/motion/free-fall', title: 'Free Fall', desc: 'Released from rest — v₀ is fixed at 0' },
+  { to: '/motion/vertical-throw', title: 'Vertical Throw', desc: 'Thrown up or down with any v₀' },
+  { to: '/motion/projectile', title: 'Projectile Motion', desc: 'Launched at an angle in 2D' },
 ];
 
 export function MotionHubPage() {
+  useDocumentTitle('Motion');
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 900, margin: '0 auto' }}>
       <h1>Motion</h1>

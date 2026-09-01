@@ -2,6 +2,7 @@ import type { CelestialBodyId } from 'physics-engine';
 import { CELESTIAL_BODIES } from 'physics-engine';
 import { Link } from 'react-router-dom';
 import { buildPlanetCalendarLink } from '../../hooks/usePlanetCalendarParams';
+import { NumberField } from './NumberField';
 
 interface PlanetSelectorProps {
   planet: CelestialBodyId;
@@ -15,19 +16,10 @@ const moons = CELESTIAL_BODIES.filter((b) => b.kind === 'moon');
 const stars = CELESTIAL_BODIES.filter((b) => b.kind === 'star');
 
 export function PlanetSelector({ planet, customG, onPlanetChange, onCustomGChange }: PlanetSelectorProps) {
-  const selectStyle = {
-    width: '100%',
-    padding: '0.45rem',
-    borderRadius: 'var(--radius)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg)',
-    color: 'var(--text)',
-  } as const;
-
   return (
     <div style={{ marginBottom: '1rem' }}>
       <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Celestial body</label>
-      <select value={planet} onChange={(e) => onPlanetChange(e.target.value as CelestialBodyId)} style={selectStyle}>
+      <select value={planet} onChange={(e) => onPlanetChange(e.target.value as CelestialBodyId)} className="select">
         <optgroup label="Planets">
           {planets.map((b) => (
             <option key={b.id} value={b.id}>
@@ -62,17 +54,13 @@ export function PlanetSelector({ planet, customG, onPlanetChange, onCustomGChang
         </p>
       )}
       {planet === 'custom' && (
-        <label style={{ display: 'block', marginTop: '0.5rem' }}>
-          <span className="muted" style={{ fontSize: '0.8rem' }}>g (m/s²)</span>
-          <input
-            type="number"
-            value={customG}
-            step={0.01}
-            min={0.01}
-            onChange={(e) => onCustomGChange(parseFloat(e.target.value) || 9.80665)}
-            style={{ width: '100%', marginTop: '0.25rem' }}
-          />
-        </label>
+        <NumberField
+          label="g"
+          unit="m/s²"
+          value={customG}
+          min={0.01}
+          onChange={onCustomGChange}
+        />
       )}
     </div>
   );

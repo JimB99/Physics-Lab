@@ -7,6 +7,7 @@ import { FreeFallPage } from './pages/FreeFallPage';
 import { VerticalThrowPage } from './pages/VerticalThrowPage';
 import { ProjectilePage } from './pages/ProjectilePage';
 import { ComparePage } from './pages/ComparePage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 const SolarSystemHubPage = lazy(() =>
   import('./pages/SolarSystemHubPage').then((m) => ({ default: m.SolarSystemHubPage })),
@@ -44,6 +45,7 @@ export const routes: RouteObject[] = [
       { path: 'solar-system', element: lazySolar(<SolarSystemHubPage />) },
       { path: 'solar-system/planet-calendar', element: lazySolar(<PlanetCalendarPage />) },
       { path: 'solar-system/moon-phases', element: lazySolar(<MoonPhasesPage />) },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ];

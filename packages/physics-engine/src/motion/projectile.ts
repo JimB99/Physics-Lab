@@ -9,13 +9,18 @@ import {
 
 export function validateProjectileInputs(inputs: ProjectileInputs): ValidationResult {
   const errors: string[] = [];
-  if (inputs.h0 < 0) errors.push('Initial height must be non-negative');
-  if (inputs.v0 < 0) errors.push('Initial speed must be non-negative');
+  if (
+    !Number.isFinite(inputs.h0) ||
+    !Number.isFinite(inputs.v0) ||
+    !Number.isFinite(inputs.angleDeg)
+  ) {
+    errors.push('All inputs must be finite numbers');
+    return { valid: false, errors };
+  }
+  if (inputs.h0 < 0) errors.push('Initial height must be non-negative (the ground is at y = 0)');
+  if (inputs.v0 < 0) errors.push('Launch speed must be non-negative');
   if (inputs.angleDeg < 0 || inputs.angleDeg > 90) {
     errors.push('Launch angle must be between 0° and 90°');
-  }
-  if (!Number.isFinite(inputs.h0) || !Number.isFinite(inputs.v0) || !Number.isFinite(inputs.angleDeg)) {
-    errors.push('All inputs must be finite numbers');
   }
   return { valid: errors.length === 0, errors };
 }
@@ -36,7 +41,8 @@ export function computeProjectileSummary(
   return {
     flightTime: impact,
     maxHeight: maxH,
-    impactVelocity: impactSpeed,
+    impactSpeed,
+    impactVelocityY: end.vy,
     impactAngle,
     horizontalDistance: end.x,
     timeToMaxHeight: tMax ?? undefined,

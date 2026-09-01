@@ -10,6 +10,7 @@ const links = [
 export function NavBar() {
   return (
     <header
+      className="app-nav"
       style={{
         borderBottom: '1px solid var(--border)',
         background: 'var(--surface)',
@@ -20,7 +21,7 @@ export function NavBar() {
       }}
     >
       <strong style={{ fontSize: '1.1rem' }}>Physics Lab</strong>
-      <nav style={{ display: 'flex', gap: '1rem' }}>
+      <nav style={{ display: 'flex', gap: '1rem' }} aria-label="Main">
         {links.map((l) => (
           <NavLink
             key={l.to}

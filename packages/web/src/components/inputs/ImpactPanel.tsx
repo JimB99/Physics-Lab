@@ -50,8 +50,13 @@ export function ImpactPanel({
       : null;
 
   return (
-    <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-      <button type="button" onClick={() => setOpen(!open)} style={{ marginBottom: '0.5rem', width: '100%' }}>
+    <div className="panel-section">
+      <button
+        type="button"
+        className="disclosure"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         {open ? '▼' : '▶'} Impact analysis
       </button>
       {open && (
@@ -71,6 +76,7 @@ export function ImpactPanel({
                   <button
                     type="button"
                     className={model === 'stoppingTime' ? 'active' : ''}
+                    aria-pressed={model === 'stoppingTime'}
                     onClick={() => onModelChange('stoppingTime')}
                   >
                     Stopping time
@@ -78,6 +84,7 @@ export function ImpactPanel({
                   <button
                     type="button"
                     className={model === 'stoppingDistance' ? 'active' : ''}
+                    aria-pressed={model === 'stoppingDistance'}
                     onClick={() => onModelChange('stoppingDistance')}
                   >
                     Stopping distance

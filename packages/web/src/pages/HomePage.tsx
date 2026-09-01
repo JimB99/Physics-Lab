@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function HomePage() {
+  useDocumentTitle('Physics Lab');
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 800, margin: '0 auto' }}>
       <h1>Physics Lab</h1>

@@ -5,6 +5,7 @@ import { EquationBlock } from './equations/EquationBlock';
 import { SolveStepsList } from './equations/SubstitutionLine';
 import { DerivativeChain } from './equations/DerivativeChain';
 import { GraphTabs } from './graphs/GraphTabs';
+import { TabStrip } from './layout/TabStrip';
 
 type TabId = 'graphs' | 'equations' | 'assumptions';
 
@@ -18,6 +19,9 @@ interface WorkspaceTabsProps {
   planet: CelestialBodyId;
   dragEnabled?: boolean;
   impactEnabled?: boolean;
+  rho?: number;
+  cd?: number;
+  area?: number;
 }
 
 export function WorkspaceTabs({
@@ -30,22 +34,28 @@ export function WorkspaceTabs({
   planet,
   dragEnabled,
   impactEnabled,
+  rho,
+  cd,
+  area,
 }: WorkspaceTabsProps) {
   const [tab, setTab] = useState<TabId>('graphs');
   const body = getCelestialBody(planet);
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        {(['graphs', 'equations', 'assumptions'] as TabId[]).map((t) => (
-          <button key={t} type="button" className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
+      <TabStrip
+        ariaLabel="Workspace detail"
+        tabs={[
+          { id: 'graphs', label: 'Graphs' },
+          { id: 'equations', label: 'Equations' },
+          { id: 'assumptions', label: 'Assumptions' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
       {tab === 'graphs' && (
-        <GraphTabs samples={samples} vacuumSamples={vacuumSamples} isProjectile={isProjectile} g={g} mass={mass} dragEnabled={dragEnabled} />
+        <GraphTabs samples={samples} vacuumSamples={vacuumSamples} isProjectile={isProjectile} g={g} mass={mass} dragEnabled={dragEnabled} rho={rho} cd={cd} area={area} />
       )}
 
       {tab === 'equations' && (

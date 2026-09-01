@@ -21,11 +21,6 @@ export const CELESTIAL_BODY_MAP: Record<Exclude<CelestialBodyId, 'custom'>, Cele
     CelestialBody
   >;
 
-/** @deprecated Use CELESTIAL_BODY_MAP */
-export const PLANET_GRAVITY: Record<Exclude<CelestialBodyId, 'custom'>, number> = Object.fromEntries(
-  CELESTIAL_BODIES.map((b) => [b.id, b.surfaceGravity]),
-) as Record<Exclude<CelestialBodyId, 'custom'>, number>;
-
 export function getCelestialBody(id: CelestialBodyId): CelestialBody | null {
   if (id === 'custom') return null;
   return CELESTIAL_BODY_MAP[id];

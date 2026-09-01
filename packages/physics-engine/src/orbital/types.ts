@@ -3,7 +3,7 @@ import type { CelestialBodyId } from '../types';
 /** Planets modeled in the heliocentric solar-system view. */
 export type OrbitalPlanetId = Exclude<CelestialBodyId, 'moon' | 'custom'>;
 
-export type DisplayScaleMode = 'true' | 'schematic';
+export type DisplayScaleMode = 'true' | 'schematic' | 'log';
 
 export type AlignmentMetric = 'pairwiseSum' | 'maxPairwise' | 'chainByLongitude';
 

@@ -79,6 +79,15 @@ export function CompareConfigurator({
                 </select>
               </label>
             )}
+            {compareType === 'environment' && v.planet === 'custom' && (
+              <NumberField
+                label="g"
+                unit="m/s²"
+                value={v.customG}
+                min={0.01}
+                onChange={(customG) => onVariantChange(v.id, { customG })}
+              />
+            )}
             {compareType === 'drag' && (
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <input

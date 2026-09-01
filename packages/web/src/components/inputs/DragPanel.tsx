@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { AtmospherePresetId, ShapePresetId } from 'physics-engine';
-import { ATMOSPHERE_PRESETS, SHAPE_PRESETS, terminalVelocity } from 'physics-engine';
+import { ATMOSPHERE_PRESETS, SHAPE_PRESETS, resolveAtmosphere, terminalVelocity } from 'physics-engine';
 import { NumberField } from './NumberField';
 
 export interface DragSettings {
@@ -24,14 +24,23 @@ export function DragPanel({ settings, mass, g, onChange }: DragPanelProps) {
 
   const update = (partial: Partial<DragSettings>) => onChange({ ...settings, ...partial });
 
+  const atmosphere = resolveAtmosphere(settings.atmospherePreset, settings.customRho, settings.enabled);
+  const effectiveRho = atmosphere.rho;
+  const vacuumPreset = settings.enabled && effectiveRho <= 0;
+
   const vt =
-    settings.enabled && settings.area > 0
-      ? terminalVelocity(mass, g, settings.customRho, settings.cd, settings.area)
+    settings.enabled && settings.area > 0 && effectiveRho > 0
+      ? terminalVelocity(mass, g, effectiveRho, settings.cd, settings.area)
       : null;
 
   return (
-    <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-      <button type="button" onClick={() => setOpen(!open)} style={{ marginBottom: '0.5rem', width: '100%' }}>
+    <div className="panel-section">
+      <button
+        type="button"
+        className="disclosure"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         {open ? '▼' : '▶'} Air resistance
       </button>
       {open && (
@@ -49,6 +58,12 @@ export function DragPanel({ settings, mass, g, onChange }: DragPanelProps) {
               <p className="error" style={{ fontSize: '0.8rem' }}>
                 Flexible solve disabled while air resistance is on. Use forward simulation.
               </p>
+              {vacuumPreset && (
+                <p className="error" style={{ fontSize: '0.8rem' }}>
+                  The selected atmosphere has ρ = 0, so there is no drag. Choose Earth or Mars, or
+                  pick Custom and enter a density.
+                </p>
+              )}
               <label style={{ display: 'block', marginBottom: '0.75rem' }}>
                 <span style={{ fontSize: '0.875rem' }}>Atmosphere</span>
                 <select
@@ -58,7 +73,7 @@ export function DragPanel({ settings, mass, g, onChange }: DragPanelProps) {
                     const rho = preset === 'custom' ? settings.customRho : ATMOSPHERE_PRESETS[preset as keyof typeof ATMOSPHERE_PRESETS]?.rho ?? 0;
                     update({ atmospherePreset: preset, customRho: rho });
                   }}
-                  style={{ width: '100%', marginTop: '0.25rem', padding: '0.45rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                  className="select"
                 >
                   {Object.entries(ATMOSPHERE_PRESETS).map(([id, p]) => (
                     <option key={id} value={id}>{p.label} (ρ = {p.rho} kg/m³)</option>
@@ -78,7 +93,7 @@ export function DragPanel({ settings, mass, g, onChange }: DragPanelProps) {
                     const preset = SHAPE_PRESETS.find((s) => s.id === shape);
                     update({ shape, cd: preset?.cd ?? settings.cd });
                   }}
-                  style={{ width: '100%', marginTop: '0.25rem', padding: '0.45rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                  className="select"
                 >
                   {SHAPE_PRESETS.map((s) => (
                     <option key={s.id} value={s.id}>{s.label} (Cd ≈ {s.cd})</option>
@@ -86,9 +101,11 @@ export function DragPanel({ settings, mass, g, onChange }: DragPanelProps) {
                 </select>
               </label>
               <NumberField label="Cross-sectional area A" unit="m²" value={settings.area} min={0.0001} step={0.001} onChange={(v) => update({ area: v })} />
-              <NumberField label="Drag coefficient Cd" unit="" value={settings.cd} min={0.01} step={0.01} onChange={(v) => update({ cd: v })} />
+              <NumberField label="Drag coefficient Cd" unit="" value={settings.cd} min={0.01} step={0.01} onChange={(cd) => update({ cd, shape: 'custom' })} />
               {vt !== null && Number.isFinite(vt) && (
-                <p className="muted" style={{ fontSize: '0.85rem' }}>Terminal velocity ≈ {vt.toFixed(1)} m/s</p>
+                <p className="muted" style={{ fontSize: '0.85rem' }}>
+                  Terminal velocity ≈ {vt.toFixed(1)} m/s at ρ = {effectiveRho} kg/m³
+                </p>
               )}
             </>
           )}

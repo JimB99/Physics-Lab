@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Physics Lab</title>
     <script>
-      sessionStorage.redirect = location.href;
+      (function () {
+        var base = '/Physics-Lab/';
+        var path = window.location.pathname;
+        var route = path.indexOf(base) === 0 ? path.slice(base.length) : '';
+        var payload = route + window.location.search + window.location.hash;
+        window.location.replace(base + '?spaRedirect=' + encodeURIComponent(payload));
+      })();
     </script>
-    <meta http-equiv="refresh" content="0;URL='/Physics-Lab/'" />
   </head>
   <body></body>
 </html>

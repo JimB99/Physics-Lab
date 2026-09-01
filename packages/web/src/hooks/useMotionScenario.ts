@@ -11,6 +11,10 @@ import {
   integrateVertical1D,
   integrateProjectile2D,
   computeTrajectoryPair,
+  summarizeSamples,
+  validateEnvironment,
+  validateVertical1DInputs,
+  validateProjectileInputs,
   type Environment,
   type MotionSample,
   type CelestialBodyId,
@@ -48,6 +52,7 @@ export interface MotionScenarioResult {
   angleDeg?: number;
   dragEnabled: boolean;
   energyLost?: number;
+  inputErrors: string[];
 }
 
 function buildFieldSpecs(
@@ -77,8 +82,35 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
   const { kind, values, modes, planet, customG, mass, fieldIds, dragSettings } = options;
 
   return useMemo(() => {
-    const g = resolveGravity(planet, customG);
+    const g = planet === 'custom' && !(customG > 0) ? Number.NaN : resolveGravity(planet, customG);
     const env: Environment = { planet, g, mass };
+
+    const h0ForCheck = modes.h0 === 'given' ? (values.h0 ?? 0) : 0;
+    const v0ForCheck = modes.v0 === 'given' ? (values.v0 ?? 0) : 0;
+    const angleForCheck = modes.angle === 'given' ? (values.angle ?? 45) : 45;
+
+    const inputErrors = [
+      ...validateEnvironment(env).errors,
+      ...(kind === 'vertical1d'
+        ? validateVertical1DInputs({ h0: h0ForCheck, v0: v0ForCheck }).errors
+        : validateProjectileInputs({ h0: h0ForCheck, v0: v0ForCheck, angleDeg: angleForCheck }).errors),
+    ];
+
+    if (inputErrors.length > 0) {
+      return {
+        env,
+        solveResult: { status: 'noSolution' as const, message: inputErrors.join('; ') },
+        summary: null,
+        samples: [],
+        vacuumSamples: [],
+        h0: h0ForCheck,
+        v0: v0ForCheck,
+        angleDeg: kind === 'projectile' ? angleForCheck : undefined,
+        dragEnabled: false,
+        inputErrors,
+      };
+    }
+
     const dragConfig = buildDragConfig(env, dragSettings);
     const dragEnabled = dragSettings.enabled && dragConfig.rho > 0;
     const atmosphere = resolveAtmosphere(dragSettings.atmospherePreset, dragSettings.customRho, dragSettings.enabled);
@@ -91,7 +123,7 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
       if (kind === 'vertical1d') {
         const samples = integrateVertical1D(h0, v0, env, dragConfig, { step: 0.05 });
         const vacuumSamples = sampleVertical1DTrajectory(h0, v0, env, { step: 0.05 });
-        const summary = computeVertical1DSummary({ h0, v0 }, env);
+        const summary = summarizeSamples(samples);
         const pair = computeTrajectoryPair('vertical1d', { h0, v0 }, env, atmosphere, dragConfig);
         return {
           env,
@@ -103,12 +135,13 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
           v0,
           dragEnabled: true,
           energyLost: pair.energyLost,
+          inputErrors: [],
         };
       }
 
       const samples = integrateProjectile2D(h0, v0, angleDeg, env, dragConfig, { step: 0.05 });
       const vacuumSamples = sampleProjectileTrajectory(h0, v0, angleDeg, env, { step: 0.05 });
-      const summary = computeProjectileSummary({ h0, v0, angleDeg }, env);
+      const summary = summarizeSamples(samples);
       const pair = computeTrajectoryPair('projectile', { h0, v0, angleDeg }, env, atmosphere, dragConfig);
       return {
         env,
@@ -121,6 +154,7 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
         angleDeg,
         dragEnabled: true,
         energyLost: pair.energyLost,
+        inputErrors: [],
       };
     }
 
@@ -132,14 +166,14 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
       let v0 = values.v0 ?? 0;
 
       if (solveResult.status === 'solved') {
-        h0 = modes.h0 === 'given' ? values.h0 : (solveResult.values.h0 ?? h0);
-        v0 = modes.v0 === 'given' ? values.v0 : (solveResult.values.v0 ?? v0);
+        h0 = modes.h0 === 'given' ? (values.h0 ?? h0) : (solveResult.values.h0 ?? h0);
+        v0 = modes.v0 === 'given' ? (values.v0 ?? v0) : (solveResult.values.v0 ?? v0);
       }
 
       const summary = solveResult.status === 'solved' ? computeVertical1DSummary({ h0, v0 }, env) : null;
       const samples = solveResult.status === 'solved' ? sampleVertical1DTrajectory(h0, v0, env, { step: 0.05 }) : [];
 
-      return { env, solveResult, summary, samples, vacuumSamples: samples, h0, v0, dragEnabled: false };
+      return { env, solveResult, summary, samples, vacuumSamples: samples, h0, v0, dragEnabled: false, inputErrors: [] };
     }
 
     const solveResult = solveProjectile(specs as FieldSpec<ProjectileFieldId>[], env);
@@ -148,14 +182,14 @@ export function useMotionScenario(options: UseMotionScenarioOptions): MotionScen
     let angleDeg = values.angle ?? 45;
 
     if (solveResult.status === 'solved') {
-      h0 = modes.h0 === 'given' ? values.h0 : (solveResult.values.h0 ?? h0);
-      v0 = modes.v0 === 'given' ? values.v0 : (solveResult.values.v0 ?? v0);
-      angleDeg = modes.angle === 'given' ? values.angle : (solveResult.values.angle ?? angleDeg);
+      h0 = modes.h0 === 'given' ? (values.h0 ?? h0) : (solveResult.values.h0 ?? h0);
+      v0 = modes.v0 === 'given' ? (values.v0 ?? v0) : (solveResult.values.v0 ?? v0);
+      angleDeg = modes.angle === 'given' ? (values.angle ?? angleDeg) : (solveResult.values.angle ?? angleDeg);
     }
 
     const summary = solveResult.status === 'solved' ? computeProjectileSummary({ h0, v0, angleDeg }, env) : null;
     const samples = solveResult.status === 'solved' ? sampleProjectileTrajectory(h0, v0, angleDeg, env, { step: 0.05 }) : [];
 
-    return { env, solveResult, summary, samples, vacuumSamples: samples, h0, v0, angleDeg, dragEnabled: false };
+    return { env, solveResult, summary, samples, vacuumSamples: samples, h0, v0, angleDeg, dragEnabled: false, inputErrors: [] };
   }, [kind, values, modes, planet, customG, mass, fieldIds, dragSettings]);
 }

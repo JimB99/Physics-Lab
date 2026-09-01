@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ORBITAL_PLANETS } from 'physics-engine';
 import type { AlignmentMetric, DisplayScaleMode, OrbitalPlanetId } from 'physics-engine';
 
 export type PlanetCalendarMode = 'snapshot' | 'alignment' | 'animate';
@@ -42,41 +43,67 @@ const defaults: PlanetCalendarParams = {
   pairB: 'jupiter',
 };
 
+export const PLANET_CALENDAR_PARAM_KEYS: Record<keyof PlanetCalendarParams, string> = {
+  mode: 'mode',
+  day: 'day',
+  month: 'month',
+  year: 'year',
+  startDay: 'startDay',
+  startMonth: 'startMonth',
+  startYear: 'startYear',
+  endDay: 'endDay',
+  endMonth: 'endMonth',
+  endYear: 'endYear',
+  stepDays: 'stepDays',
+  scaleMode: 'scale',
+  alignmentMetric: 'metric',
+  pairA: 'pairA',
+  pairB: 'pairB',
+};
+
+const ORBITAL_PLANET_IDS = new Set<string>(ORBITAL_PLANETS.map((p) => p.id));
+
 function parseIntParam(value: string | null, fallback: number): number {
   if (value === null) return fallback;
   const parsed = parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parsePlanetParam(value: string | null, fallback: OrbitalPlanetId): OrbitalPlanetId {
+  return value !== null && ORBITAL_PLANET_IDS.has(value) ? (value as OrbitalPlanetId) : fallback;
+}
+
 export function usePlanetCalendarParams(): [PlanetCalendarParams, (patch: Partial<PlanetCalendarParams>) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const params = useMemo((): PlanetCalendarParams => {
-    const modeParam = searchParams.get('mode');
+    const keys = PLANET_CALENDAR_PARAM_KEYS;
+    const modeParam = searchParams.get(keys.mode);
     const mode: PlanetCalendarMode =
       modeParam === 'alignment' || modeParam === 'animate' ? modeParam : 'snapshot';
-    const scaleParam = searchParams.get('scale');
-    const scaleMode: DisplayScaleMode = scaleParam === 'true' ? 'true' : 'schematic';
-    const metricParam = searchParams.get('metric');
+    const scaleParam = searchParams.get(keys.scaleMode);
+    const scaleMode: DisplayScaleMode =
+      scaleParam === 'true' || scaleParam === 'log' ? scaleParam : 'schematic';
+    const metricParam = searchParams.get(keys.alignmentMetric);
     const alignmentMetric: AlignmentMetric =
       metricParam === 'maxPairwise' || metricParam === 'chainByLongitude' ? metricParam : 'pairwiseSum';
 
     return {
       mode,
-      day: parseIntParam(searchParams.get('day'), defaults.day),
-      month: parseIntParam(searchParams.get('month'), defaults.month),
-      year: parseIntParam(searchParams.get('year'), defaults.year),
-      startDay: parseIntParam(searchParams.get('startDay'), defaults.startDay),
-      startMonth: parseIntParam(searchParams.get('startMonth'), defaults.startMonth),
-      startYear: parseIntParam(searchParams.get('startYear'), defaults.startYear),
-      endDay: parseIntParam(searchParams.get('endDay'), defaults.endDay),
-      endMonth: parseIntParam(searchParams.get('endMonth'), defaults.endMonth),
-      endYear: parseIntParam(searchParams.get('endYear'), defaults.endYear),
-      stepDays: Math.max(1, parseIntParam(searchParams.get('stepDays'), defaults.stepDays)),
+      day: parseIntParam(searchParams.get(keys.day), defaults.day),
+      month: parseIntParam(searchParams.get(keys.month), defaults.month),
+      year: parseIntParam(searchParams.get(keys.year), defaults.year),
+      startDay: parseIntParam(searchParams.get(keys.startDay), defaults.startDay),
+      startMonth: parseIntParam(searchParams.get(keys.startMonth), defaults.startMonth),
+      startYear: parseIntParam(searchParams.get(keys.startYear), defaults.startYear),
+      endDay: parseIntParam(searchParams.get(keys.endDay), defaults.endDay),
+      endMonth: parseIntParam(searchParams.get(keys.endMonth), defaults.endMonth),
+      endYear: parseIntParam(searchParams.get(keys.endYear), defaults.endYear),
+      stepDays: Math.max(1, parseIntParam(searchParams.get(keys.stepDays), defaults.stepDays)),
       scaleMode,
       alignmentMetric,
-      pairA: (searchParams.get('pairA') as OrbitalPlanetId) || defaults.pairA,
-      pairB: (searchParams.get('pairB') as OrbitalPlanetId) || defaults.pairB,
+      pairA: parsePlanetParam(searchParams.get(keys.pairA), defaults.pairA),
+      pairB: parsePlanetParam(searchParams.get(keys.pairB), defaults.pairB),
     };
   }, [searchParams]);
 
@@ -86,7 +113,9 @@ export function usePlanetCalendarParams(): [PlanetCalendarParams, (patch: Partia
         (prev) => {
           const next = new URLSearchParams(prev);
           for (const [key, value] of Object.entries(patch)) {
-            next.set(key, String(value));
+            const paramKey = PLANET_CALENDAR_PARAM_KEYS[key as keyof PlanetCalendarParams];
+            if (!paramKey) continue;
+            next.set(paramKey, String(value));
           }
           return next;
         },

@@ -16,7 +16,8 @@ describe('free fall', () => {
     const summary = computeVertical1DSummary({ h0: 10, v0: 0 }, earthEnv);
     expect(summary).not.toBeNull();
     expect(summary!.flightTime).toBeCloseTo(1.428, 2);
-    expect(summary!.impactVelocity).toBeCloseTo(-14.0, 0);
+    expect(summary!.impactVelocityY).toBeCloseTo(-14.0, 0);
+    expect(summary!.impactSpeed).toBeCloseTo(14.0, 0);
   });
 
   it('conserves mechanical energy along trajectory', () => {

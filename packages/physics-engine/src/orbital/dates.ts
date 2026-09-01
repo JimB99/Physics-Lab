@@ -12,9 +12,18 @@ export function formatDateParts(date: Date): DateParts {
   };
 }
 
-export function formatDateString(date: Date): string {
-  const { day, month, year } = formatDateParts(date);
-  return `${day}.${month}.${year}`;
+function pad(value: number, width = 2): string {
+  return String(value).padStart(width, '0');
+}
+
+/** ISO calendar date in UTC, e.g. "2026-09-01". */
+export function formatIsoDate(date: Date): string {
+  return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+/** ISO date plus UTC time to the minute, e.g. "2026-09-01 12:34 UTC". */
+export function formatIsoDateTime(date: Date): string {
+  return `${formatIsoDate(date)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
 }
 
 export function addDays(date: Date, days: number): Date {
@@ -56,4 +65,15 @@ export function enumerateDates(start: Date, endExclusive: Date, stepDays: number
     dates.push(new Date(current.getTime()));
   }
   return dates;
+}
+
+/** Parses "YYYY-MM-DD" at 12:00 UTC. Returns null when malformed or invalid. */
+export function parseIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (validateDateParts(day, month, year) !== null) return null;
+  return parseDateParts(day, month, year);
 }

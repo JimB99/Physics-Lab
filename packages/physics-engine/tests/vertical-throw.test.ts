@@ -13,6 +13,6 @@ describe('vertical throw', () => {
   it('throws downward from 20 m', () => {
     const summary = computeVertical1DSummary({ h0: 20, v0: -5 }, earthEnv);
     expect(summary!.flightTime).toBeGreaterThan(0);
-    expect(summary!.impactVelocity).toBeLessThan(-5);
+    expect(summary!.impactVelocityY).toBeLessThan(-5);
   });
 });

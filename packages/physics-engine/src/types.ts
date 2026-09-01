@@ -11,9 +11,6 @@ export type CelestialBodyId =
   | 'sun'
   | 'custom';
 
-/** @deprecated Use CelestialBodyId */
-export type PlanetId = CelestialBodyId;
-
 export type CelestialBodyKind = 'planet' | 'moon' | 'star';
 
 export interface CelestialBody {
@@ -60,11 +57,14 @@ export interface MotionSample {
 
 export interface ScenarioSummary {
   flightTime: number;
+  /** Always a non-negative magnitude. */
+  impactSpeed: number;
+  /** Signed vertical velocity at impact (negative when descending). */
+  impactVelocityY: number;
   maxHeight: number;
-  impactVelocity: number;
+  timeToMaxHeight?: number;
   impactAngle?: number;
   horizontalDistance?: number;
-  timeToMaxHeight?: number;
 }
 
 export interface SampleOptions {

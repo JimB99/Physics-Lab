@@ -10,9 +10,21 @@ import {
 
 export function validateVertical1DInputs(inputs: Vertical1DInputs): ValidationResult {
   const errors: string[] = [];
-  if (inputs.h0 < 0) errors.push('Initial height must be non-negative');
   if (!Number.isFinite(inputs.h0) || !Number.isFinite(inputs.v0)) {
     errors.push('Initial height and velocity must be finite numbers');
+  } else if (inputs.h0 < 0) {
+    errors.push('Initial height must be non-negative (the ground is at y = 0)');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateEnvironment(env: Environment): ValidationResult {
+  const errors: string[] = [];
+  if (!Number.isFinite(env.mass) || env.mass <= 0) {
+    errors.push('Mass must be a positive number');
+  }
+  if (!Number.isFinite(env.g) || env.g <= 0) {
+    errors.push('Gravitational acceleration must be a positive number');
   }
   return { valid: errors.length === 0, errors };
 }
@@ -29,7 +41,8 @@ export function computeVertical1DSummary(
   return {
     flightTime: impact,
     maxHeight: maxH,
-    impactVelocity,
+    impactSpeed: Math.abs(impactVelocity),
+    impactVelocityY: impactVelocity,
     timeToMaxHeight: tMax ?? undefined,
   };
 }

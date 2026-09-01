@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AlignmentMetric, DisplayScaleMode, PlanetPosition } from 'physics-engine';
 import { formatNumber, metricLabel } from 'physics-engine';
 import { EquationBlock } from '../equations/EquationBlock';
+import { TabStrip } from '../layout/TabStrip';
 
 type TabId = 'equations' | 'assumptions';
 
@@ -15,13 +16,15 @@ export function PlanetCalendarTabs({ scaleMode, alignmentMetric }: PlanetCalenda
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        {(['equations', 'assumptions'] as TabId[]).map((t) => (
-          <button key={t} type="button" className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
+      <TabStrip
+        ariaLabel="Planet calendar detail"
+        tabs={[
+          { id: 'equations', label: 'Equations' },
+          { id: 'assumptions', label: 'Assumptions' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
       {tab === 'equations' && (
         <div>
@@ -51,7 +54,9 @@ export function PlanetCalendarTabs({ scaleMode, alignmentMetric }: PlanetCalenda
             Display scale:{' '}
             {scaleMode === 'true'
               ? 'true AU in the ecliptic plane'
-              : 'fixed schematic radii with accurate ecliptic angles'}
+              : scaleMode === 'log'
+                ? 'log₁₀ of the true distance, with accurate ecliptic angles'
+                : 'fixed schematic radii with accurate ecliptic angles'}
           </li>
           <li>Moon, Pluto, and asteroids are not shown in this view</li>
           <li>Alignment search uses fixed-budget optimization (coarse grid + golden-section refine), not day stepping</li>
@@ -74,12 +79,20 @@ export function ScaleEducationCallout({ scaleMode }: { scaleMode: DisplayScaleMo
         fontSize: '0.85rem',
       }}
     >
-      <strong>{scaleMode === 'true' ? 'True AU scale' : 'Schematic spacing'}</strong>
+      <strong>
+        {scaleMode === 'true'
+          ? 'True AU scale'
+          : scaleMode === 'log'
+            ? 'Logarithmic distance'
+            : 'Schematic spacing'}
+      </strong>
       <p className="muted" style={{ margin: '0.35rem 0 0' }}>
         {scaleMode === 'true'
-          ? 'Orbit circles and planet dots use real ecliptic distances in AU. Outer planets appear far from the Sun.'
-          : 'Orbit circles use fixed, evenly spaced radii so labels stay readable. Planet angles still come from VSOP87.'}
-        {' '}Alignment and pair-distance calculations always use true 3D AU positions.
+          ? 'Orbit circles and planet dots use real ecliptic distances in AU. The inner planets crowd together near the Sun.'
+          : scaleMode === 'log'
+            ? 'Radii are log₁₀ of the true distance, so Mercury and Neptune are both visible while the ordering stays honest. Angles still come from VSOP87.'
+            : 'Orbit circles use fixed, evenly spaced radii so labels stay readable. Planet angles still come from VSOP87.'}{' '}
+        Alignment and pair-distance calculations always use true 3D AU positions.
       </p>
     </div>
   );

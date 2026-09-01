@@ -14,7 +14,7 @@ Physics Lab is not a black-box calculator. Enter what you know, solve for what y
 
 | Scenario | Route | Description |
 |----------|-------|-------------|
-| Free fall | `/motion/free-fall` | Object falling under gravity |
+| Free fall | `/motion/free-fall` | Object released from rest (v₀ = 0) |
 | Vertical throw | `/motion/vertical-throw` | Thrown upward or downward |
 | Projectile motion | `/motion/projectile` | Launch at an angle |
 
@@ -58,7 +58,7 @@ Clearly labeled as **average** force, not peak.
 - **Drag** — vacuum vs air resistance
 - **Angle** — different launch angles (projectile)
 
-Shared graphs and multi-object simulation. Optional **Orbit date** panel shows each variant planet’s heliocentric longitude and distance (URL param `orbitDate=YYYY-MM-DD`).
+Shared graphs, a per-variant summary table (flight time, impact speed, max height, range), and multi-object simulation. The full comparison — scenario, comparison axis, and every variant — is encoded in the URL, so a configuration can be shared as a link. The optional **Orbit date** panel shows each variant planet's heliocentric longitude and distance (URL param `orbitDate=YYYY-MM-DD`).
 
 ### Solar system
 
@@ -68,7 +68,9 @@ Shared graphs and multi-object simulation. Optional **Orbit date** panel shows e
 | Moon Phases | `/solar-system/moon-phases` | Lunar phase, illumination, upcoming quarter events |
 | Solar System hub | `/solar-system` | Entry point for orbital modules |
 
-Heliocentric positions use **astronomy-engine** (VSOP87) in the browser. Cluster and pair searches use fixed-budget numerical optimization (not day-by-day scans). Solar-system routes are lazy-loaded to keep the main bundle smaller.
+Heliocentric positions use **astronomy-engine** (VSOP87) in the browser. Cluster and pair searches minimise the true 3D AU objective with an adaptive coarse grid (one sample per 5 days) plus golden-section refinement, and run in a Web Worker so the UI stays responsive. Solar-system routes are lazy-loaded to keep the main bundle smaller.
+
+Three display scales are available: schematic (evenly spaced orbits), logarithmic (all planets visible, ordering preserved), and true AU.
 
 ### Equations & visualization
 
@@ -92,7 +94,8 @@ npm install
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Dev server at `http://localhost:5173/Physics-Lab/` |
-| `npm test` | Run physics-engine unit tests (Vitest) |
+| `npm test` | Run all unit tests (physics-engine and web) |
+| `npm run test:web` | Run web UI tests only (Vitest + jsdom) |
 | `npm run build` | Production build → `packages/web/dist` |
 | `npm run preview` | Preview production build locally |
 
@@ -117,12 +120,14 @@ Physics-Lab/
 │   │   ├── simulation/     # RK4 integrator, comparison helpers
 │   │   ├── impact/         # Impact force models
 │   │   ├── forces/         # Gravity, drag
+│   │   ├── energy/         # Mechanical energy helpers
 │   │   └── orbital/        # VSOP87 solar-system positions & alignment
 │   └── web/                # Vite + React UI
 │       └── src/
 │           ├── pages/      # Scenario & compare pages
 │           ├── components/ # Inputs, graphs, simulation
-│           └── hooks/      # URL state, scenario wiring
+│           ├── hooks/      # URL state, scenario wiring
+│           └── workers/    # Off-main-thread alignment search
 └── .github/workflows/      # CI and Pages deploy
 ```
 
@@ -181,6 +186,7 @@ Assumes uniform deceleration over the stopping interval. Peak forces can be much
 - Motion scenarios: Sun uses **surface gravity** only — no orbital mechanics in those models
 - Solar System module: heliocentric VSOP87 positions; Moon/Pluto not shown in planet calendar
 - *g* does not vary with altitude in motion scenarios
+- Numerical trajectories terminate exactly at *y* = 0 via sub-step bisection; the reported impact time is accurate to the RK4 truncation error, not to the sample interval
 - No wind, lift, or spin
 - Impact model gives average force, not peak
 
@@ -190,10 +196,11 @@ Assumes uniform deceleration over the stopping interval. Peak forces can be much
 
 Possible future additions:
 
-- Moon phases and conjunction presets
 - Springs, pendulums, harmonic motion
 - Elastic / inelastic collisions
-- Unit conversion (mph, ft, etc.)
+- Unit toggle (mph, ft, lbf)
+- Light theme
+- CSV export of trajectory samples
 - Step-by-step full derivations
 - 3D visualization
 

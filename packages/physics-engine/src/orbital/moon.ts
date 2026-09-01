@@ -1,5 +1,5 @@
-import { MoonPhase, NextMoonQuarter, SearchMoonPhase, SearchMoonQuarter } from 'astronomy-engine';
-import { addDays, formatDateString } from './dates';
+import { Body, Illumination, MoonPhase, NextMoonQuarter, SearchMoonQuarter } from 'astronomy-engine';
+import { formatIsoDateTime } from './dates';
 
 export type MoonPhaseName =
   | 'New Moon'
@@ -24,13 +24,6 @@ export interface MoonPhaseEvent {
   phaseAngleDeg: number;
 }
 
-const PHASE_TARGETS: { angle: number; name: MoonPhaseName }[] = [
-  { angle: 0, name: 'New Moon' },
-  { angle: 90, name: 'First Quarter' },
-  { angle: 180, name: 'Full Moon' },
-  { angle: 270, name: 'Last Quarter' },
-];
-
 const QUARTER_NAMES: MoonPhaseName[] = ['New Moon', 'First Quarter', 'Full Moon', 'Last Quarter'];
 
 function phaseNameFromAngle(angle: number): MoonPhaseName {
@@ -45,11 +38,6 @@ function phaseNameFromAngle(angle: number): MoonPhaseName {
   return 'Waning Crescent';
 }
 
-function illuminationFromAngle(angle: number): number {
-  const a = ((angle % 360) + 360) % 360;
-  return (1 - Math.cos((a * Math.PI) / 180)) / 2;
-}
-
 function quarterToAngle(quarter: number): number {
   return (quarter % 4) * 90;
 }
@@ -60,58 +48,28 @@ export function getMoonPhase(date: Date): MoonPhaseInfo {
     date: new Date(date.getTime()),
     phaseAngleDeg,
     name: phaseNameFromAngle(phaseAngleDeg),
-    illuminationFraction: illuminationFromAngle(phaseAngleDeg),
+    illuminationFraction: Illumination(Body.Moon, date).phase_fraction,
   };
 }
 
-export function findUpcomingPhases(start: Date, count: number): MoonPhaseEvent[] {
-  if (count < 1) return [];
-
-  const events: MoonPhaseEvent[] = [];
-  let cursor = new Date(start.getTime());
-
-  while (events.length < count) {
-    let best: MoonPhaseEvent | null = null;
-
-    for (const target of PHASE_TARGETS) {
-      const found = SearchMoonPhase(target.angle, cursor, 40);
-      if (!found) continue;
-      const date = found.date;
-      if (date.getTime() <= cursor.getTime()) continue;
-      const event: MoonPhaseEvent = {
-        date,
-        name: target.name,
-        phaseAngleDeg: target.angle,
-      };
-      if (!best || event.date.getTime() < best.date.getTime()) {
-        best = event;
-      }
-    }
-
-    if (!best) break;
-    events.push(best);
-    cursor = addDays(best.date, 1);
-  }
-
-  return events;
-}
+const MAX_QUARTER_ITERATIONS = 400;
 
 export function findUpcomingQuarters(start: Date, count: number): MoonPhaseEvent[] {
   if (count < 1) return [];
 
   const events: MoonPhaseEvent[] = [];
   let quarter = SearchMoonQuarter(start);
+  let iterations = 0;
 
-  while (events.length < count) {
+  while (events.length < count && iterations < MAX_QUARTER_ITERATIONS) {
+    iterations++;
     const date = quarter.time.date;
-    if (date.getTime() > start.getTime() || events.length > 0) {
-      const phaseAngleDeg = quarterToAngle(quarter.quarter);
-      events.push({
-        date,
-        name: QUARTER_NAMES[quarter.quarter] ?? phaseNameFromAngle(phaseAngleDeg),
-        phaseAngleDeg,
-      });
-    }
+    const phaseAngleDeg = quarterToAngle(quarter.quarter);
+    events.push({
+      date,
+      name: QUARTER_NAMES[quarter.quarter] ?? phaseNameFromAngle(phaseAngleDeg),
+      phaseAngleDeg,
+    });
     quarter = NextMoonQuarter(quarter);
   }
 
@@ -119,5 +77,5 @@ export function findUpcomingQuarters(start: Date, count: number): MoonPhaseEvent
 }
 
 export function formatMoonEvent(event: MoonPhaseEvent): string {
-  return `${event.name} — ${formatDateString(event.date)}`;
+  return `${event.name} — ${formatIsoDateTime(event.date)}`;
 }

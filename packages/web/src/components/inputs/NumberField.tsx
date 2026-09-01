@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 interface NumberFieldProps {
   label: string;
   value: number;
@@ -5,23 +7,72 @@ interface NumberFieldProps {
   onChange: (value: number) => void;
   disabled?: boolean;
   min?: number;
+  max?: number;
   step?: number;
+  integer?: boolean;
 }
 
-export function NumberField({ label, value, unit, onChange, disabled, min, step = 0.01 }: NumberFieldProps) {
+function clamp(value: number, min?: number, max?: number): number {
+  let out = value;
+  if (min !== undefined && out < min) out = min;
+  if (max !== undefined && out > max) out = max;
+  return out;
+}
+
+export function NumberField({
+  label,
+  value,
+  unit,
+  onChange,
+  disabled,
+  min,
+  max,
+  integer = false,
+}: NumberFieldProps) {
+  const [draft, setDraft] = useState(() => String(value));
+
+  useEffect(() => {
+    setDraft((current) => (Number(current) === value ? current : String(value)));
+  }, [value]);
+
+  const handleChange = (raw: string) => {
+    setDraft(raw);
+    if (raw.trim() === '') return;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    onChange(integer ? Math.round(parsed) : parsed);
+  };
+
+  const handleBlur = () => {
+    const parsed = Number(draft);
+    if (draft.trim() === '' || !Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const settled = clamp(integer ? Math.round(parsed) : parsed, min, max);
+    setDraft(String(settled));
+    if (settled !== value) onChange(settled);
+  };
+
   return (
-    <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-      <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
-        {label}
-        {unit && <span className="muted"> ({unit})</span>}
-      </span>
+    <label className="field">
+      {label !== '' && (
+        <span className="field__label">
+          {label}
+          {unit && <span className="muted"> ({unit})</span>}
+        </span>
+      )}
       <input
-        type="number"
-        value={Number.isFinite(value) ? value : ''}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
+        className="field__input"
+        value={draft}
         disabled={disabled}
-        min={min}
-        step={step}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        aria-label={label === '' ? undefined : label}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
       />
     </label>
   );

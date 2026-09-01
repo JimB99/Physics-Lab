@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import type { AlignmentSearchResult, PairConjunctionResult } from 'physics-engine';
 import {
   ORBITAL_PLANETS,
   PLANET_CALENDAR_PRESETS,
   addDays,
   applyPlanetCalendarPreset,
-  formatDateString,
+  formatIsoDate,
   getSolarSystemSnapshot,
   parseDateParts,
   todayUtcDate,
   validateDateParts,
-  findBestAlignment,
-  findClosestPair,
 } from 'physics-engine';
 import { WorkspaceLayout } from '../components/layout/WorkspaceLayout';
 import {
@@ -22,60 +19,58 @@ import {
 } from '../components/solar-system/PlanetCalendarPanels';
 import { SolarSystemCanvas } from '../components/solar-system/SolarSystemCanvas';
 import { PlaybackControls } from '../components/simulation/PlaybackControls';
+import { NumberField } from '../components/inputs/NumberField';
 import { usePlanetCalendarParams } from '../hooks/usePlanetCalendarParams';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useAlignmentSearch } from '../hooks/useAlignmentSearch';
 
 const MAX_ANIMATION_FRAMES = 500;
 
 function DateFields({
-  prefix,
+  legend,
   day,
   month,
   year,
   onChange,
 }: {
-  prefix: string;
+  legend: string;
   day: number;
   month: number;
   year: number;
   onChange: (patch: { day?: number; month?: number; year?: number }) => void;
 }) {
-  const fieldStyle = { width: '100%', marginTop: '0.25rem' } as const;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-      <label>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>Day</span>
-        <input
-          type="number"
+    <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.75rem' }}>
+      <legend className="muted" style={{ fontSize: '0.75rem', padding: 0 }}>
+        {legend}
+      </legend>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '0.5rem' }}>
+        <NumberField
+          label="Day"
+          value={day}
           min={1}
           max={31}
-          value={day}
-          onChange={(e) => onChange({ day: parseInt(e.target.value, 10) || 1 })}
-          style={fieldStyle}
+          integer
+          onChange={(next) => onChange({ day: next })}
         />
-      </label>
-      <label>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>Month</span>
-        <input
-          type="number"
+        <NumberField
+          label="Month"
+          value={month}
           min={1}
           max={12}
-          value={month}
-          onChange={(e) => onChange({ month: parseInt(e.target.value, 10) || 1 })}
-          style={fieldStyle}
+          integer
+          onChange={(next) => onChange({ month: next })}
         />
-      </label>
-      <label>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>Year</span>
-        <input
-          type="number"
-          min={1}
+        <NumberField
+          label="Year"
           value={year}
-          onChange={(e) => onChange({ year: parseInt(e.target.value, 10) || 2000 })}
-          style={fieldStyle}
+          min={1}
+          max={9999}
+          integer
+          onChange={(next) => onChange({ year: next })}
         />
-      </label>
-      <span className="muted" style={{ gridColumn: '1 / -1', fontSize: '0.75rem' }}>{prefix}</span>
-    </div>
+      </div>
+    </fieldset>
   );
 }
 
@@ -99,15 +94,13 @@ function dateAtAnimationFrame(rangeStart: Date, rangeEnd: Date, userStep: number
 }
 
 export function PlanetCalendarPage() {
+  useDocumentTitle('Planet Calendar');
   const [params, setParams] = usePlanetCalendarParams();
   const [searchParams] = useSearchParams();
   const highlight = searchParams.get('highlight');
   const [error, setError] = useState<string | null>(null);
   const [animIndex, setAnimIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [alignmentResult, setAlignmentResult] = useState<AlignmentSearchResult | null>(null);
-  const [pairResult, setPairResult] = useState<PairConjunctionResult | null>(null);
 
   const snapshotDate = useMemo(
     () => parseDateParts(params.day, params.month, params.year),
@@ -130,19 +123,6 @@ export function PlanetCalendarPage() {
     return { days, effectiveStep, frames };
   }, [params.mode, rangeStart, rangeEnd, params.stepDays]);
 
-  const activeDate =
-    params.mode === 'animate' && animationMeta && animationMeta.frames > 0
-      ? dateAtAnimationFrame(rangeStart, rangeEnd, params.stepDays, animIndex)
-      : snapshotDate;
-
-  const displayDate =
-    params.mode === 'alignment' && alignmentResult ? alignmentResult.date : activeDate;
-
-  const positions = useMemo(() => {
-    if (params.mode === 'alignment' && alignmentResult) return alignmentResult.positions;
-    return getSolarSystemSnapshot(displayDate, params.scaleMode).positions;
-  }, [params.mode, alignmentResult, displayDate, params.scaleMode]);
-
   useEffect(() => {
     setAnimIndex(0);
     setPlaying(false);
@@ -159,34 +139,33 @@ export function PlanetCalendarPage() {
     setError(err);
   }, [params, rangeEnd, rangeStart]);
 
-  useEffect(() => {
-    if (params.mode !== 'alignment' || error) {
-      setAlignmentResult(null);
-      setPairResult(null);
-      setSearching(false);
-      return;
-    }
+  const {
+    searching,
+    alignment: alignmentResult,
+    pair: pairResult,
+    error: searchError,
+  } = useAlignmentSearch({
+    enabled: params.mode === 'alignment' && error === null,
+    start: rangeStart,
+    endExclusive: rangeEnd,
+    metric: params.alignmentMetric,
+    scaleMode: params.scaleMode,
+    pairA: params.pairA,
+    pairB: params.pairB,
+  });
 
-    setSearching(true);
-    const timer = setTimeout(() => {
-      const alignment = findBestAlignment(rangeStart, rangeEnd, params.alignmentMetric, params.scaleMode);
-      const pair = findClosestPair(params.pairA, params.pairB, rangeStart, rangeEnd, params.scaleMode);
-      setAlignmentResult(alignment);
-      setPairResult(pair);
-      setSearching(false);
-    }, 0);
+  const activeDate =
+    params.mode === 'animate' && animationMeta && animationMeta.frames > 0
+      ? dateAtAnimationFrame(rangeStart, rangeEnd, params.stepDays, animIndex)
+      : snapshotDate;
 
-    return () => clearTimeout(timer);
-  }, [
-    params.mode,
-    params.alignmentMetric,
-    params.pairA,
-    params.pairB,
-    params.scaleMode,
-    rangeStart,
-    rangeEnd,
-    error,
-  ]);
+  const displayDate =
+    params.mode === 'alignment' && alignmentResult ? alignmentResult.date : activeDate;
+
+  const positions = useMemo(() => {
+    if (params.mode === 'alignment' && alignmentResult) return alignmentResult.positions;
+    return getSolarSystemSnapshot(displayDate, params.scaleMode).positions;
+  }, [params.mode, alignmentResult, displayDate, params.scaleMode]);
 
   useEffect(() => {
     if (!playing || !animationMeta || animationMeta.frames === 0) return;
@@ -203,35 +182,26 @@ export function PlanetCalendarPage() {
     return () => clearInterval(id);
   }, [playing, animationMeta]);
 
-  const title = formatDateString(displayDate);
+  const title = formatIsoDate(displayDate);
   const resultsFooter = useMemo(() => {
     if (params.mode !== 'alignment') return undefined;
     if (searching) return 'Searching…';
     const parts: string[] = [];
     if (alignmentResult) {
       parts.push(
-        `Best cluster (${params.alignmentMetric}): ${alignmentResult.score.toFixed(3)} AU on ${formatDateString(alignmentResult.date)}`,
+        `Best cluster (${params.alignmentMetric}): ${alignmentResult.score.toFixed(3)} AU on ${formatIsoDate(alignmentResult.date)}`,
       );
     } else {
       parts.push('No dates in the selected range.');
     }
     if (pairResult) {
       parts.push(
-        `Closest ${pairResult.bodyA}–${pairResult.bodyB}: ${pairResult.distanceAu.toFixed(3)} AU on ${formatDateString(pairResult.date)}`,
+        `Closest ${pairResult.bodyA}–${pairResult.bodyB}: ${pairResult.distanceAu.toFixed(3)} AU on ${formatIsoDate(pairResult.date)}`,
       );
     }
+    if (searchError) parts.push(`Search error: ${searchError}`);
     return parts.join(' · ');
-  }, [params.mode, params.alignmentMetric, alignmentResult, pairResult, searching]);
-
-  const selectStyle = {
-    width: '100%',
-    padding: '0.45rem',
-    borderRadius: 'var(--radius)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg)',
-    color: 'var(--text)',
-    marginTop: '0.25rem',
-  } as const;
+  }, [params.mode, params.alignmentMetric, alignmentResult, pairResult, searching, searchError]);
 
   const setToday = () => {
     const today = todayUtcDate();
@@ -276,7 +246,7 @@ export function PlanetCalendarPage() {
             <select
               value={params.mode}
               onChange={(e) => setParams({ mode: e.target.value as typeof params.mode })}
-              style={selectStyle}
+              className="select"
             >
               <option value="snapshot">Position on date</option>
               <option value="alignment">Find best cluster in range</option>
@@ -287,7 +257,7 @@ export function PlanetCalendarPage() {
           {params.mode === 'snapshot' && (
             <>
               <DateFields
-                prefix="Selected date (UTC noon)"
+                legend="Selected date (UTC noon)"
                 day={params.day}
                 month={params.month}
                 year={params.year}
@@ -302,7 +272,7 @@ export function PlanetCalendarPage() {
           {params.mode !== 'snapshot' && (
             <>
               <DateFields
-                prefix="Range start"
+                legend="Range start"
                 day={params.startDay}
                 month={params.startMonth}
                 year={params.startYear}
@@ -315,7 +285,7 @@ export function PlanetCalendarPage() {
                 }
               />
               <DateFields
-                prefix="Range end (exclusive)"
+                legend="Range end (exclusive)"
                 day={params.endDay}
                 month={params.endMonth}
                 year={params.endYear}
@@ -331,14 +301,13 @@ export function PlanetCalendarPage() {
           )}
 
           {params.mode === 'animate' && (
-            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-              <span className="muted" style={{ fontSize: '0.8rem' }}>Step (days, minimum)</span>
-              <input
-                type="number"
-                min={1}
+            <>
+              <NumberField
+                label="Step (days, minimum)"
                 value={params.stepDays}
-                onChange={(e) => setParams({ stepDays: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                style={{ width: '100%', marginTop: '0.25rem' }}
+                min={1}
+                integer
+                onChange={(next) => setParams({ stepDays: Math.max(1, next) })}
               />
               {animationMeta && animationMeta.days > 0 && (
                 <span className="muted" style={{ fontSize: '0.75rem' }}>
@@ -348,7 +317,7 @@ export function PlanetCalendarPage() {
                     : ''}
                 </span>
               )}
-            </label>
+            </>
           )}
 
           {params.mode === 'alignment' && (
@@ -361,7 +330,7 @@ export function PlanetCalendarPage() {
                 <select
                   value={params.alignmentMetric}
                   onChange={(e) => setParams({ alignmentMetric: e.target.value as typeof params.alignmentMetric })}
-                  style={selectStyle}
+                  className="select"
                 >
                   <option value="pairwiseSum">Minimize sum of all pair distances</option>
                   <option value="maxPairwise">Minimize maximum pair distance</option>
@@ -374,7 +343,7 @@ export function PlanetCalendarPage() {
                   <select
                     value={params.pairA}
                     onChange={(e) => setParams({ pairA: e.target.value as typeof params.pairA })}
-                    style={selectStyle}
+                    className="select"
                   >
                     {ORBITAL_PLANETS.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -386,7 +355,7 @@ export function PlanetCalendarPage() {
                   <select
                     value={params.pairB}
                     onChange={(e) => setParams({ pairB: e.target.value as typeof params.pairB })}
-                    style={selectStyle}
+                    className="select"
                   >
                     {ORBITAL_PLANETS.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -402,9 +371,10 @@ export function PlanetCalendarPage() {
             <select
               value={params.scaleMode}
               onChange={(e) => setParams({ scaleMode: e.target.value as typeof params.scaleMode })}
-              style={selectStyle}
+              className="select"
             >
               <option value="schematic">Schematic spacing (readable orbits)</option>
+              <option value="log">Logarithmic distance (all planets visible)</option>
               <option value="true">True ecliptic distances (AU)</option>
             </select>
           </label>
@@ -423,6 +393,8 @@ export function PlanetCalendarPage() {
                   playing={playing}
                   time={animIndex}
                   duration={Math.max(animationMeta.frames - 1, 0)}
+                  step={1}
+                  unitLabel="frames"
                   onPlay={() => setPlaying(true)}
                   onPause={() => setPlaying(false)}
                   onRestart={() => {

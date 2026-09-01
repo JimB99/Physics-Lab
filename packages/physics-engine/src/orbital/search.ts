@@ -1,11 +1,20 @@
-const COARSE_SAMPLES = 80;
-const MAX_BASINS = 5;
-const GOLDEN_ITERATIONS = 30;
+const DEFAULT_MAX_SAMPLE_DAYS = 5;
+const DEFAULT_MAX_COARSE_SAMPLES = 4000;
+const MIN_COARSE_SAMPLES = 64;
+const DEFAULT_MAX_BASINS = 8;
+const GOLDEN_ITERATIONS = 40;
 const PHI = (1 + Math.sqrt(5)) / 2;
+const MS_PER_DAY = 86_400_000;
 
 export interface MinimizeResult {
   date: Date;
   score: number;
+}
+
+export interface MinimizeOptions {
+  maxSampleDays?: number;
+  maxCoarseSamples?: number;
+  maxBasins?: number;
 }
 
 function msToDate(ms: number): Date {
@@ -40,65 +49,74 @@ function goldenSectionMinimize(
     }
   }
 
-  const midMs = (a + b) / 2;
-  const midDate = msToDate(midMs);
-  return { date: midDate, score: fn(midDate) };
+  const candidates: MinimizeResult[] = [
+    { date: msToDate(a), score: fn(msToDate(a)) },
+    { date: msToDate((a + b) / 2), score: fn(msToDate((a + b) / 2)) },
+    { date: msToDate(b), score: fn(msToDate(b)) },
+  ];
+  return candidates.reduce((best, candidate) => (candidate.score < best.score ? candidate : best));
 }
 
-/**
- * Fixed-budget minimizer on a date interval. Cost is independent of calendar span.
- */
 export function minimizeOnInterval(
   start: Date,
   endExclusive: Date,
   fn: (date: Date) => number,
+  options: MinimizeOptions = {},
 ): MinimizeResult | null {
   const startMs = start.getTime();
   const endMs = endExclusive.getTime();
   if (endMs <= startMs) return null;
 
+  const maxSampleDays = options.maxSampleDays ?? DEFAULT_MAX_SAMPLE_DAYS;
+  const maxCoarseSamples = options.maxCoarseSamples ?? DEFAULT_MAX_COARSE_SAMPLES;
+  const maxBasins = options.maxBasins ?? DEFAULT_MAX_BASINS;
+
   const span = endMs - startMs;
-  const coarse: MinimizeResult[] = [];
+  const spanDays = span / MS_PER_DAY;
+  const coarseSamples = Math.min(
+    maxCoarseSamples,
+    Math.max(MIN_COARSE_SAMPLES, Math.ceil(spanDays / maxSampleDays) + 1),
+  );
 
-  for (let i = 0; i < COARSE_SAMPLES; i++) {
-    const t = startMs + (span * i) / Math.max(COARSE_SAMPLES - 1, 1);
-    const date = msToDate(t);
-    coarse.push({ date, score: fn(date) });
+  const scores = new Float64Array(coarseSamples);
+  const divisor = Math.max(coarseSamples - 1, 1);
+  for (let i = 0; i < coarseSamples; i++) {
+    scores[i] = fn(msToDate(startMs + (span * i) / divisor));
   }
 
-  const basinIndices = new Set<number>();
-  for (let i = 0; i < coarse.length; i++) {
-    const prev = coarse[i - 1]?.score ?? Number.POSITIVE_INFINITY;
-    const curr = coarse[i]!.score;
-    const next = coarse[i + 1]?.score ?? Number.POSITIVE_INFINITY;
-    if (curr <= prev && curr <= next) {
-      basinIndices.add(i);
+  const basins: { index: number; score: number }[] = [];
+  for (let i = 0; i < coarseSamples; i++) {
+    const prev = i > 0 ? scores[i - 1]! : Number.POSITIVE_INFINITY;
+    const curr = scores[i]!;
+    const next = i < coarseSamples - 1 ? scores[i + 1]! : Number.POSITIVE_INFINITY;
+    if (curr <= prev && curr <= next) basins.push({ index: i, score: curr });
+  }
+
+  if (basins.length === 0) {
+    let bestIndex = 0;
+    for (let i = 1; i < coarseSamples; i++) {
+      if (scores[i]! < scores[bestIndex]!) bestIndex = i;
     }
+    return {
+      date: msToDate(startMs + (span * bestIndex) / divisor),
+      score: scores[bestIndex]!,
+    };
   }
 
-  if (basinIndices.size === 0) {
-    let best = coarse[0]!;
-    for (const sample of coarse) {
-      if (sample.score < best.score) best = sample;
-    }
-    return best;
-  }
-
-  const sortedBasins = [...basinIndices]
-    .map((index) => ({ index, score: coarse[index]!.score }))
-    .sort((a, b) => a.score - b.score)
-    .slice(0, MAX_BASINS);
+  basins.sort((a, b) => a.score - b.score);
+  const step = span / divisor;
 
   let best: MinimizeResult | null = null;
-  const step = span / Math.max(COARSE_SAMPLES - 1, 1);
-
-  for (const basin of sortedBasins) {
+  for (const basin of basins.slice(0, maxBasins)) {
     const left = Math.max(startMs, startMs + (basin.index - 1) * step);
     const right = Math.min(endMs, startMs + (basin.index + 1) * step);
     const refined = goldenSectionMinimize(left, right, fn);
-    if (!best || refined.score < best.score) {
-      best = refined;
-    }
+    const coarse: MinimizeResult = {
+      date: msToDate(startMs + basin.index * step),
+      score: basin.score,
+    };
+    const local = refined.score <= coarse.score ? refined : coarse;
+    if (!best || local.score < best.score) best = local;
   }
 
   return best;

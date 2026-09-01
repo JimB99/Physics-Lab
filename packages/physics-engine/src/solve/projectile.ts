@@ -7,14 +7,45 @@ import { solveVertical1D } from './vertical-1d';
 
 type State = Partial<Record<ProjectileFieldId, number>>;
 
-function setValue(state: State, field: ProjectileFieldId, value: number, steps: SolveStep[], step: SolveStep): boolean {
-  if (field in state && !approxEqual(state[field]!, value)) return false;
-  if (!(field in state)) {
-    state[field] = value;
-    steps.push(step);
-    return true;
+const VERTICAL_FIELD_IDS: string[] = [
+  'h0',
+  'v0',
+  't',
+  'y',
+  'v',
+  'impactTime',
+  'impactVelocity',
+  'maxHeight',
+  'timeToMaxHeight',
+];
+
+function setValue(
+  state: State,
+  field: ProjectileFieldId,
+  value: number,
+  steps: SolveStep[],
+  step: SolveStep,
+  conflicts: string[],
+): void {
+  const existing = state[field];
+  if (existing !== undefined) {
+    if (!approxEqual(existing, value)) {
+      conflicts.push(`${field}: given ${existing}, computed ${value}`);
+    }
+    return;
   }
-  return false;
+  state[field] = value;
+  steps.push(step);
+}
+
+/** Launch angles (deg, ascending) that give `range` for `v0` on flat ground. */
+function anglesForRange(v0: number, range: number, g: number): number[] {
+  if (v0 <= 0 || range <= 0) return [];
+  const sin2Theta = (range * g) / (v0 * v0);
+  if (sin2Theta > 1) return [];
+  const low = radToDeg(Math.asin(sin2Theta)) / 2;
+  const high = 90 - low;
+  return approxEqual(low, high) ? [low] : [low, high];
 }
 
 export function solveProjectile(
@@ -24,11 +55,20 @@ export function solveProjectile(
   const given: State = {};
   const toSolve = new Set<ProjectileFieldId>();
   const steps: SolveStep[] = [];
+  const conflicts: string[] = [];
 
   for (const f of fields) {
     if (f.mode === 'given') {
       if (f.value === undefined || !Number.isFinite(f.value)) {
         return { status: 'noSolution', message: `Given field "${f.id}" needs a numeric value` };
+      }
+      const existing = given[f.id];
+      if (existing !== undefined && !approxEqual(existing, f.value)) {
+        return {
+          status: 'overconstrained',
+          message: 'Conflicting given values',
+          conflicts: [`${f.id} specified twice with different values`],
+        };
       }
       given[f.id] = f.value;
     } else {
@@ -42,9 +82,50 @@ export function solveProjectile(
 
   const g = env.g;
   const state: State = { ...given };
-  let h0 = state.h0;
-  let v0 = state.v0;
-  let angle = state.angle;
+  const multiValues: Record<string, number[]> = {};
+
+  if (state.v0 === undefined && state.vx !== undefined && state.vy !== undefined) {
+    const speed = Math.hypot(state.vx, state.vy);
+    setValue(state, 'v0', speed, steps, {
+      equation: 'v₀ = √(v_x² + v_y²)',
+      description: 'Launch speed from components',
+      field: 'v0',
+      result: speed,
+    }, conflicts);
+    const derivedAngle = radToDeg(Math.atan2(state.vy, state.vx));
+    setValue(state, 'angle', derivedAngle, steps, {
+      equation: 'θ = atan2(v_y, v_x)',
+      description: 'Launch angle from components',
+      field: 'angle',
+      result: derivedAngle,
+    }, conflicts);
+  }
+
+  if (
+    state.angle === undefined &&
+    state.v0 !== undefined &&
+    state.range !== undefined &&
+    (state.h0 === undefined || approxEqual(state.h0, 0))
+  ) {
+    const angles = anglesForRange(state.v0, state.range, g);
+    if (angles.length === 0) {
+      return {
+        status: 'noSolution',
+        message: 'That range is not reachable at this launch speed on flat ground',
+      };
+    }
+    multiValues.angle = angles;
+    setValue(state, 'angle', angles[0]!, steps, {
+      equation: 'sin(2θ) = R g / v₀²',
+      description: 'Launch angle from range (flat ground; low-angle solution)',
+      field: 'angle',
+      result: angles[0]!,
+    }, conflicts);
+  }
+
+  const h0 = state.h0;
+  const v0 = state.v0;
+  const angle = state.angle;
 
   if (h0 !== undefined && v0 !== undefined && angle !== undefined) {
     const angleRad = degToRad(angle);
@@ -52,67 +133,74 @@ export function solveProjectile(
 
     if (state.t !== undefined) {
       const pos = positionProjectile(h0, v0, angleRad, g, state.t);
+      const speedAtT = Math.hypot(pos.vx, pos.vy);
       setValue(state, 'x', pos.x, steps, {
         equation: 'x = v₀ cos(θ) t',
         description: 'Horizontal position at t',
         field: 'x',
         result: pos.x,
-      });
+      }, conflicts);
       setValue(state, 'y', pos.y, steps, {
         equation: 'y = h₀ + v₀ sin(θ) t − ½gt²',
         description: 'Vertical position at t',
         field: 'y',
         result: pos.y,
-      });
+      }, conflicts);
       setValue(state, 'vx', pos.vx, steps, {
         equation: 'v_x = v₀ cos(θ)',
         description: 'Horizontal velocity',
         field: 'vx',
         result: pos.vx,
-      });
+      }, conflicts);
       setValue(state, 'vy', pos.vy, steps, {
         equation: 'v_y = v₀ sin(θ) − gt',
         description: 'Vertical velocity at t',
         field: 'vy',
         result: pos.vy,
-      });
+      }, conflicts);
+      setValue(state, 'v', speedAtT, steps, {
+        equation: '|v| = √(v_x² + v_y²)',
+        description: 'Speed at t',
+        field: 'v',
+        result: speedAtT,
+      }, conflicts);
     }
 
     const impact = firstImpactTime(h0, vy0, g);
     if (impact !== null) {
       const end = positionProjectile(h0, v0, angleRad, g, impact);
-      const impactSpeed = Math.sqrt(end.vx * end.vx + end.vy * end.vy);
+      const impactSpeed = Math.hypot(end.vx, end.vy);
       const impactAngle = radToDeg(Math.atan2(end.vy, end.vx));
       setValue(state, 'flightTime', impact, steps, {
         equation: 'y(t) = 0',
         description: 'Flight time',
         field: 'flightTime',
         result: impact,
-      });
+      }, conflicts);
       setValue(state, 'impactTime', impact, steps, {
         equation: 'y(t) = 0',
         description: 'Impact time',
         field: 'impactTime',
         result: impact,
-      });
+      }, conflicts);
       setValue(state, 'range', end.x, steps, {
-        equation: 'x at impact',
+        equation: 'R = v₀ cos(θ) · t_impact',
         description: 'Horizontal range',
         field: 'range',
         result: end.x,
-      });
+      }, conflicts);
       setValue(state, 'impactVelocity', impactSpeed, steps, {
         equation: '|v| at impact',
         description: 'Impact speed',
         field: 'impactVelocity',
         result: impactSpeed,
-      });
+      }, conflicts);
       setValue(state, 'impactAngle', impactAngle, steps, {
         equation: 'atan2(v_y, v_x)',
         description: 'Impact angle',
         field: 'impactAngle',
         result: impactAngle,
-      });
+      }, conflicts);
     }
 
     const maxH = maxHeight1D(h0, vy0, g);
@@ -121,7 +209,7 @@ export function solveProjectile(
       description: 'Maximum height',
       field: 'maxHeight',
       result: maxH,
-    });
+    }, conflicts);
 
     if (vy0 > 0) {
       setValue(state, 'timeToMaxHeight', vy0 / g, steps, {
@@ -129,28 +217,33 @@ export function solveProjectile(
         description: 'Time to max height',
         field: 'timeToMaxHeight',
         result: vy0 / g,
-      });
+      }, conflicts);
     }
   } else {
-    const verticalFields = fields.filter((f) =>
-      ['h0', 'v0', 't', 'y', 'v', 'impactTime', 'impactVelocity', 'maxHeight', 'timeToMaxHeight'].includes(f.id),
-    );
+    const verticalFields = fields.filter((f) => VERTICAL_FIELD_IDS.includes(f.id));
     if (verticalFields.length > 0) {
       const vResult = solveVertical1D(verticalFields as FieldSpec<Vertical1DFieldId>[], env);
-      if (vResult.status !== 'solved') return vResult;
-      Object.assign(state, given, vResult.values);
-      h0 = state.h0 ?? given.h0;
-      v0 = state.v0 ?? given.v0;
+      if (vResult.status === 'solved') {
+        Object.assign(state, vResult.values);
+      }
     }
+  }
+
+  if (conflicts.length > 0) {
+    return {
+      status: 'overconstrained',
+      message: 'Given values are inconsistent',
+      conflicts: [...new Set(conflicts)],
+    };
   }
 
   const missing: string[] = [];
   for (const id of toSolve) {
-    if (!(id in state)) missing.push(id);
+    if (state[id] === undefined && multiValues[id] === undefined) missing.push(id);
   }
 
   if (missing.length > 0) {
-    if (h0 === undefined || v0 === undefined || angle === undefined) {
+    if (state.h0 === undefined || state.v0 === undefined || state.angle === undefined) {
       return {
         status: 'underdetermined',
         message: 'Need h₀, v₀, and launch angle (or enough info to derive them)',
@@ -166,10 +259,16 @@ export function solveProjectile(
 
   const values: Record<string, number> = {};
   for (const id of toSolve) {
-    values[id] = state[id]!;
+    const resolved = state[id];
+    if (resolved !== undefined) values[id] = resolved;
   }
 
-  return { status: 'solved', values, steps };
+  return {
+    status: 'solved',
+    values,
+    multiValues: Object.keys(multiValues).length > 0 ? multiValues : undefined,
+    steps,
+  };
 }
 
 export function resolvedProjectileInputs(

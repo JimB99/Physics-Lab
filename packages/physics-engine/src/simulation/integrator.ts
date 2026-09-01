@@ -6,6 +6,7 @@ import type { DragConfig, Environment, MotionSample } from '../types';
 import { degToRad } from '../units';
 
 const MAX_STEPS = 100_000;
+const CROSSING_BISECTIONS = 40;
 
 function buildSample(
   t: number,
@@ -59,6 +60,29 @@ function rk4Step1D(y: number, v: number, dt: number, drag: DragConfig): { y: num
   };
 }
 
+/** Bisects a single RK4 step to find the sub-step at which y reaches 0. */
+function refineGroundCrossing1D(
+  y: number,
+  v: number,
+  dt: number,
+  drag: DragConfig,
+): { dt: number; v: number } {
+  let lo = 0;
+  let hi = dt;
+  let vAtCrossing = rk4Step1D(y, v, hi, drag).v;
+  for (let i = 0; i < CROSSING_BISECTIONS; i++) {
+    const mid = (lo + hi) / 2;
+    const probe = rk4Step1D(y, v, mid, drag);
+    if (probe.y > 0) {
+      lo = mid;
+    } else {
+      hi = mid;
+      vAtCrossing = probe.v;
+    }
+  }
+  return { dt: hi, v: vAtCrossing };
+}
+
 export function integrateVertical1D(
   h0: number,
   v0: number,
@@ -77,11 +101,22 @@ export function integrateVertical1D(
   const initDrag = dragForceQuadratic(drag.rho, drag.cd, drag.area, Math.abs(v));
   samples.push(buildSample(0, 0, y, 0, v, env, initDrag, -Fg - Math.sign(v || -1) * initDrag, 0));
 
+  if (h0 <= 0 && v0 <= 0) return samples;
+
   for (let i = 0; i < MAX_STEPS && t < maxTime; i++) {
     const next = rk4Step1D(y, v, step, drag);
-    t += step;
-    y = next.y;
-    v = next.v;
+    const crossesGround = next.y <= 0 && y > 0;
+
+    if (crossesGround) {
+      const crossing = refineGroundCrossing1D(y, v, step, drag);
+      t += crossing.dt;
+      v = crossing.v;
+      y = 0;
+    } else {
+      t += step;
+      y = next.y;
+      v = next.v;
+    }
 
     const speed = Math.abs(v);
     const Fd = speed > 0 ? dragForceQuadratic(drag.rho, drag.cd, drag.area, speed) : 0;
@@ -89,7 +124,7 @@ export function integrateVertical1D(
 
     samples.push(buildSample(t, 0, y, 0, v, env, Fd, netFy, 0));
 
-    if (y <= 0 && t > 0) break;
+    if (y <= 0) break;
   }
 
   return samples;
@@ -133,6 +168,31 @@ function rk4Step2D(
   };
 }
 
+/** Bisects a single RK4 step to find the sub-step at which y reaches 0. */
+function refineGroundCrossing2D(
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  dt: number,
+  drag: DragConfig,
+): { dt: number; x: number; vx: number; vy: number } {
+  let lo = 0;
+  let hi = dt;
+  let best = rk4Step2D(x, y, vx, vy, hi, drag);
+  for (let i = 0; i < CROSSING_BISECTIONS; i++) {
+    const mid = (lo + hi) / 2;
+    const probe = rk4Step2D(x, y, vx, vy, mid, drag);
+    if (probe.y > 0) {
+      lo = mid;
+    } else {
+      hi = mid;
+      best = probe;
+    }
+  }
+  return { dt: hi, x: best.x, vx: best.vx, vy: best.vy };
+}
+
 export function integrateProjectile2D(
   h0: number,
   v0: number,
@@ -158,24 +218,35 @@ export function integrateProjectile2D(
     buildSample(0, x, y, vx, vy, env, initDrag, -Fg - (initSpeed > 0 ? (initDrag * vy) / initSpeed : 0), initSpeed > 0 ? -(initDrag * vx) / initSpeed : 0),
   );
 
+  if (h0 <= 0 && vy <= 0) return samples;
+
   for (let i = 0; i < MAX_STEPS && t < maxTime; i++) {
     const next = rk4Step2D(x, y, vx, vy, step, drag);
-    t += step;
-    x = next.x;
-    y = next.y;
-    vx = next.vx;
-    vy = next.vy;
+    const crossesGround = next.y <= 0 && y > 0;
+
+    if (crossesGround) {
+      const crossing = refineGroundCrossing2D(x, y, vx, vy, step, drag);
+      t += crossing.dt;
+      x = crossing.x;
+      y = 0;
+      vx = crossing.vx;
+      vy = crossing.vy;
+    } else {
+      t += step;
+      x = next.x;
+      y = next.y;
+      vx = next.vx;
+      vy = next.vy;
+    }
 
     const speed = Math.sqrt(vx * vx + vy * vy);
     const Fd = speed > 0 ? dragForceQuadratic(drag.rho, drag.cd, drag.area, speed) : 0;
     const Fdx = speed > 0 ? -(Fd * vx) / speed : 0;
     const Fdy = speed > 0 ? -(Fd * vy) / speed : 0;
-    const netFx = Fdx;
-    const netFy = -Fg + Fdy;
 
-    samples.push(buildSample(t, x, y, vx, vy, env, Fd, netFy, netFx));
+    samples.push(buildSample(t, x, y, vx, vy, env, Fd, -Fg + Fdy, Fdx));
 
-    if (y <= 0 && t > 0) break;
+    if (y <= 0) break;
   }
 
   return samples;

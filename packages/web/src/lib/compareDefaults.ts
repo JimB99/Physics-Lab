@@ -24,5 +24,42 @@ export const DEFAULT_VARIANTS: VariantConfig[] = [
 ];
 
 export function planetLabel(id: CelestialBodyId): string {
+  if (id === 'custom') return 'Custom g';
   return CELESTIAL_BODIES.find((b) => b.id === id)?.name ?? id;
+}
+
+const VARIANT_IDS = ['a', 'b', 'c'] as const;
+const VALID_BODY_IDS = new Set<string>([...CELESTIAL_BODIES.map((b) => b.id), 'custom']);
+
+export function encodeVariant(v: VariantConfig): string {
+  return [v.planet, v.customG, v.h0, v.v0, v.angle, v.dragEnabled ? 1 : 0].join(':');
+}
+
+export function decodeVariant(id: string, raw: string, color: string): VariantConfig | null {
+  const parts = raw.split(':');
+  if (parts.length !== 6) return null;
+  const [planet, customG, h0, v0, angle, drag] = parts as [string, string, string, string, string, string];
+  if (!VALID_BODY_IDS.has(planet)) return null;
+  const numbers = [customG, h0, v0, angle].map(Number);
+  if (numbers.some((n) => !Number.isFinite(n))) return null;
+  return {
+    id,
+    label: `Variant ${id.toUpperCase()}`,
+    color,
+    planet: planet as CelestialBodyId,
+    customG: numbers[0]!,
+    h0: numbers[1]!,
+    v0: numbers[2]!,
+    angle: numbers[3]!,
+    dragEnabled: drag === '1',
+  };
+}
+
+export function nextVariantId(existing: VariantConfig[]): string {
+  const used = new Set(existing.map((v) => v.id));
+  return VARIANT_IDS.find((candidate) => !used.has(candidate)) ?? 'c';
+}
+
+export function variantColor(index: number): string {
+  return COMPARE_COLORS[index % COMPARE_COLORS.length]!;
 }

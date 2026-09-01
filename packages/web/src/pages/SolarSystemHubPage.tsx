@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const modules = [
   {
@@ -14,6 +15,7 @@ const modules = [
 ];
 
 export function SolarSystemHubPage() {
+  useDocumentTitle('Solar System');
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 900, margin: '0 auto' }}>
       <h1>Solar System</h1>

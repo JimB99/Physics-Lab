@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Body } from 'astronomy-engine';
-import { clusterScore, findBestAlignment, findClosestPair, metricLabel, pairDistanceAu } from '../src/orbital/alignment';
+import { clusterScore, clusterScoreAu, findBestAlignment, findClosestPair, metricLabel, pairDistanceAu } from '../src/orbital/alignment';
 import { ORBITAL_BODIES } from '../src/orbital/bodies';
-import { addDays, enumerateDates, formatDateString, parseDateParts, validateDateParts } from '../src/orbital/dates';
+import { addDays, enumerateDates, formatIsoDate, formatIsoDateTime, parseDateParts, parseIsoDate, validateDateParts } from '../src/orbital/dates';
 import { heliocentricEcliptic } from '../src/orbital/ephemeris';
 import { applyPlanetCalendarPreset } from '../src/orbital/presets';
 import { getSolarSystemSnapshot } from '../src/orbital/positions';
@@ -16,8 +16,19 @@ describe('orbital dates', () => {
 
   it('round-trips calendar dates', () => {
     const date = parseDateParts(1, 1, 2000);
-    expect(formatDateString(date)).toBe('1.1.2000');
-    expect(formatDateString(addDays(date, 365))).toBe('31.12.2000');
+    expect(formatIsoDate(date)).toBe('2000-01-01');
+    expect(formatIsoDate(addDays(date, 365))).toBe('2000-12-31');
+  });
+
+  it('formats a date and time in UTC', () => {
+    expect(formatIsoDateTime(new Date(Date.UTC(2026, 8, 1, 7, 5)))).toBe('2026-09-01 07:05 UTC');
+  });
+
+  it('parses ISO dates and rejects malformed ones', () => {
+    expect(formatIsoDate(parseIsoDate('2026-02-28')!)).toBe('2026-02-28');
+    expect(parseIsoDate('2026-02-30')).toBeNull();
+    expect(parseIsoDate('nope')).toBeNull();
+    expect(parseIsoDate('2026-2-8')).toBeNull();
   });
 });
 
@@ -88,43 +99,6 @@ describe('alignment search', () => {
     expect(result!.distanceAu).toBeGreaterThan(0);
   });
 
-  it('completes a 10-year search quickly with fixed budget', () => {
-    const start = parseDateParts(1, 1, 2010);
-    const end = addDays(start, 10 * 365);
-    const t0 = performance.now();
-    const result = findBestAlignment(start, end, 'pairwiseSum', 'true');
-    const elapsed = performance.now() - t0;
-    expect(result).not.toBeNull();
-    expect(result!.date.getTime()).toBeGreaterThanOrEqual(start.getTime());
-    expect(result!.date.getTime()).toBeLessThan(end.getTime());
-    expect(elapsed).toBeLessThan(2000);
-  });
-
-  it('matches or beats coarse brute force on a short window', () => {
-    const start = parseDateParts(1, 1, 2024);
-    const end = addDays(start, 90);
-    const fast = findBestAlignment(start, end, 'pairwiseSum', 'true')!;
-
-    let bruteScore = Number.POSITIVE_INFINITY;
-    for (const date of enumerateDates(start, end, 30)) {
-      const positions = getSolarSystemSnapshot(date, 'true').positions;
-      const planets = positions.filter((p) => p.id !== 'sun');
-      let sum = 0;
-      for (let i = 0; i < planets.length; i++) {
-        for (let j = i + 1; j < planets.length; j++) {
-          sum += Math.hypot(
-            planets[i]!.xAu - planets[j]!.xAu,
-            planets[i]!.yAu - planets[j]!.yAu,
-            planets[i]!.zAu - planets[j]!.zAu,
-          );
-        }
-      }
-      bruteScore = Math.min(bruteScore, sum);
-    }
-
-    expect(fast.score).toBeLessThanOrEqual(bruteScore * 1.05);
-  });
-
   it('minimizeOnInterval returns null for empty interval', () => {
     const start = parseDateParts(1, 1, 2024);
     expect(minimizeOnInterval(start, start, () => 0)).toBeNull();
@@ -155,10 +129,61 @@ describe('planet calendar presets', () => {
 });
 
 describe('cluster score', () => {
-  it('returns finite scores', () => {
+  it('returns finite scores for every metric', () => {
     const date = parseDateParts(1, 1, 2024);
     expect(clusterScore(date, 'pairwiseSum')).toBeGreaterThan(0);
     expect(clusterScore(date, 'maxPairwise')).toBeGreaterThan(0);
     expect(clusterScore(date, 'chainByLongitude')).toBeGreaterThan(0);
+  });
+
+  it('reports AU-scale magnitudes for the AU objective', () => {
+    const date = parseDateParts(1, 1, 2024);
+    const score = clusterScoreAu(date, 'pairwiseSum');
+    expect(score).toBeGreaterThan(50);
+    expect(score).toBeLessThan(2000);
+  });
+
+  it('the chain metric is unaffected by rotating the whole system past 0 degrees', () => {
+    const a = clusterScoreAu(parseDateParts(1, 1, 2024), 'chainByLongitude');
+    const b = clusterScoreAu(parseDateParts(1, 7, 2024), 'chainByLongitude');
+    expect(Math.max(a, b) / Math.min(a, b)).toBeLessThan(3);
+  });
+
+  it('the chain metric never exceeds the pairwise-sum metric', () => {
+    const date = parseDateParts(15, 6, 2030);
+    expect(clusterScoreAu(date, 'chainByLongitude')).toBeLessThan(
+      clusterScoreAu(date, 'pairwiseSum'),
+    );
+  });
+});
+
+describe('alignment search accuracy', () => {
+  it('beats a 10-day brute-force scan over a 15-year window', () => {
+    const start = parseDateParts(1, 1, 2026);
+    const end = addDays(start, 15 * 365);
+
+    const fast = findBestAlignment(start, end, 'pairwiseSum', 'true')!;
+
+    let bruteScore = Number.POSITIVE_INFINITY;
+    for (const date of enumerateDates(start, end, 10)) {
+      bruteScore = Math.min(bruteScore, clusterScoreAu(date, 'pairwiseSum'));
+    }
+
+    expect(fast.score).toBeLessThanOrEqual(bruteScore);
+  });
+
+  it('reports the score it actually minimised', () => {
+    const start = parseDateParts(1, 1, 2026);
+    const end = addDays(start, 5 * 365);
+    const result = findBestAlignment(start, end, 'pairwiseSum', 'true')!;
+    expect(result.score).toBeCloseTo(clusterScoreAu(result.date, 'pairwiseSum'), 6);
+  });
+
+  it('stays under 8 seconds for a 15-year window', () => {
+    const start = parseDateParts(1, 1, 2026);
+    const end = addDays(start, 15 * 365);
+    const t0 = performance.now();
+    findBestAlignment(start, end, 'pairwiseSum', 'true');
+    expect(performance.now() - t0).toBeLessThan(8000);
   });
 });

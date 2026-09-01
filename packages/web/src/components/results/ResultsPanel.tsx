@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { formatNumber } from 'physics-engine';
 
 export interface ResultItem {
@@ -11,9 +12,10 @@ interface ResultsPanelProps {
   items: ResultItem[];
   error?: string;
   hint?: string;
+  actions?: ReactNode;
 }
 
-export function ResultsPanel({ items, error, hint }: ResultsPanelProps) {
+export function ResultsPanel({ items, error, hint, actions }: ResultsPanelProps) {
   return (
     <div>
       <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Results</h3>
@@ -43,6 +45,7 @@ export function ResultsPanel({ items, error, hint }: ResultsPanelProps) {
           </div>
         ))}
       </dl>
+      {actions}
     </div>
   );
 }

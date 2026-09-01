@@ -20,7 +20,9 @@ export const ORBITAL_BODIES: OrbitalBodyDefinition[] = [
   { id: 'jupiter', name: 'Jupiter', body: Body.Jupiter, color: '#f0e68c', schematicRadius: 10, markerSize: 5 },
   { id: 'saturn', name: 'Saturn', body: Body.Saturn, color: '#daa520', schematicRadius: 12, markerSize: 5 },
   { id: 'uranus', name: 'Uranus', body: Body.Uranus, color: '#40e0d0', schematicRadius: 14, markerSize: 4 },
-  { id: 'neptune', name: 'Neptune', body: Body.Neptune, color: '#000080', schematicRadius: 16, markerSize: 4 },
+  // Neptune's conventional navy is invisible on the dark UI background; this is a
+  // lightened variant chosen for contrast against --bg (#0f1419).
+  { id: 'neptune', name: 'Neptune', body: Body.Neptune, color: '#5a7bff', schematicRadius: 16, markerSize: 4 },
 ];
 
 export const ORBITAL_BODY_MAP: Record<OrbitalPlanetId, OrbitalBodyDefinition> = Object.fromEntries(

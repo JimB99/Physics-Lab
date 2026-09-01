@@ -7,14 +7,6 @@ export function formatNumber(value: number, decimals = 3): string {
   return value.toFixed(decimals);
 }
 
-export function isPositiveFinite(n: unknown): n is number {
-  return typeof n === 'number' && Number.isFinite(n) && n > 0;
-}
-
-export function isFiniteNumber(n: unknown): n is number {
-  return typeof n === 'number' && Number.isFinite(n);
-}
-
 export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }

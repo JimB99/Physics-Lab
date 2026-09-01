@@ -16,19 +16,27 @@ function addStep(steps: SolveStep[], step: SolveStep): void {
   steps.push(step);
 }
 
-function setValue(state: State, field: Vertical1DFieldId, value: number, steps: SolveStep[], step: SolveStep): boolean {
-  if (field in state && !approxEqual(state[field]!, value)) {
+function setValue(
+  state: State,
+  field: Vertical1DFieldId,
+  value: number,
+  steps: SolveStep[],
+  step: SolveStep,
+  conflicts: string[],
+): boolean {
+  const existing = state[field];
+  if (existing !== undefined) {
+    if (!approxEqual(existing, value)) {
+      conflicts.push(`${field}: given ${existing}, computed ${value}`);
+    }
     return false;
   }
-  if (!(field in state)) {
-    state[field] = value;
-    addStep(steps, step);
-    return true;
-  }
-  return false;
+  state[field] = value;
+  addStep(steps, step);
+  return true;
 }
 
-function deriveFromBasics(state: State, g: number, steps: SolveStep[]): boolean {
+function deriveFromBasics(state: State, g: number, steps: SolveStep[], conflicts: string[]): boolean {
   let changed = false;
   const h0 = state.h0;
   const v0 = state.v0;
@@ -43,14 +51,14 @@ function deriveFromBasics(state: State, g: number, steps: SolveStep[]): boolean 
           description: 'Position at time t',
           field: 'y',
           result: y,
-        }) || changed;
+        }, conflicts) || changed;
       changed =
         setValue(state, 'v', v, steps, {
           equation: 'v = v₀ − gt',
           description: 'Velocity at time t',
           field: 'v',
           result: v,
-        }) || changed;
+        }, conflicts) || changed;
     }
 
     const impact = firstImpactTime(h0, v0, g);
@@ -62,14 +70,14 @@ function deriveFromBasics(state: State, g: number, steps: SolveStep[]): boolean 
           description: 'Time to impact',
           field: 'impactTime',
           result: impact,
-        }) || changed;
+        }, conflicts) || changed;
       changed =
         setValue(state, 'impactVelocity', vImpact, steps, {
           equation: 'v = v₀ − gt',
           description: 'Velocity at impact',
           field: 'impactVelocity',
           result: vImpact,
-        }) || changed;
+        }, conflicts) || changed;
     }
 
     const maxH = maxHeight1D(h0, v0, g);
@@ -79,7 +87,7 @@ function deriveFromBasics(state: State, g: number, steps: SolveStep[]): boolean 
         description: 'Maximum height',
         field: 'maxHeight',
         result: maxH,
-      }) || changed;
+      }, conflicts) || changed;
 
     const tMax = timeToMaxHeight1D(v0, g);
     if (tMax !== null) {
@@ -89,14 +97,14 @@ function deriveFromBasics(state: State, g: number, steps: SolveStep[]): boolean 
           description: 'Time to maximum height',
           field: 'timeToMaxHeight',
           result: tMax,
-        }) || changed;
+        }, conflicts) || changed;
     }
   }
 
   return changed;
 }
 
-function deriveBasics(state: State, g: number, steps: SolveStep[]): boolean {
+function deriveBasics(state: State, g: number, steps: SolveStep[], conflicts: string[]): boolean {
   let changed = false;
   const { h0, v0, t, y, v } = state;
 
@@ -108,7 +116,7 @@ function deriveBasics(state: State, g: number, steps: SolveStep[]): boolean {
         description: 'Initial velocity from position at t',
         field: 'v0',
         result: computed,
-      }) || changed;
+      }, conflicts) || changed;
   }
 
   if (h0 !== undefined && t !== undefined && v !== undefined && v0 === undefined) {
@@ -119,7 +127,7 @@ function deriveBasics(state: State, g: number, steps: SolveStep[]): boolean {
         description: 'Initial velocity from velocity at t',
         field: 'v0',
         result: computed,
-      }) || changed;
+      }, conflicts) || changed;
   }
 
   if (v0 !== undefined && t !== undefined && y !== undefined && h0 === undefined) {
@@ -130,20 +138,7 @@ function deriveBasics(state: State, g: number, steps: SolveStep[]): boolean {
         description: 'Initial height from position at t',
         field: 'h0',
         result: computed,
-      }) || changed;
-  }
-
-  if (v0 !== undefined && t !== undefined && v !== undefined && h0 === undefined) {
-    const computed = y !== undefined ? y - v0 * t + 0.5 * g * t * t : undefined;
-    if (computed !== undefined) {
-      changed =
-        setValue(state, 'h0', computed, steps, {
-          equation: 'h₀ = y − v₀t + ½gt²',
-          description: 'Initial height',
-          field: 'h0',
-          result: computed,
-        }) || changed;
-    }
+      }, conflicts) || changed;
   }
 
   if (h0 !== undefined && v0 !== undefined && y !== undefined && t === undefined) {
@@ -155,22 +150,11 @@ function deriveBasics(state: State, g: number, steps: SolveStep[]): boolean {
           description: 'Time at height y',
           field: 't',
           result: times[0]!,
-        }) || changed;
+        }, conflicts) || changed;
     }
   }
 
   return changed;
-}
-
-function verifyGiven(state: State, given: State): string[] {
-  const conflicts: string[] = [];
-  for (const [key, val] of Object.entries(given)) {
-    const computed = state[key as Vertical1DFieldId];
-    if (computed !== undefined && !approxEqual(computed, val)) {
-      conflicts.push(`${key}: given ${val}, computed ${computed}`);
-    }
-  }
-  return conflicts;
 }
 
 export function solveVertical1D(
@@ -205,18 +189,22 @@ export function solveVertical1D(
   }
 
   const state: State = { ...given };
+  const conflicts: string[] = [];
   let iterations = 0;
   let changed = true;
   while (changed && iterations < 20) {
     changed = false;
     iterations++;
-    changed = deriveBasics(state, g, steps) || changed;
-    changed = deriveFromBasics(state, g, steps) || changed;
+    changed = deriveBasics(state, g, steps, conflicts) || changed;
+    changed = deriveFromBasics(state, g, steps, conflicts) || changed;
   }
 
-  const conflicts = verifyGiven(state, given);
   if (conflicts.length > 0) {
-    return { status: 'overconstrained', message: 'Given values are inconsistent', conflicts };
+    return {
+      status: 'overconstrained',
+      message: 'Given values are inconsistent',
+      conflicts: [...new Set(conflicts)],
+    };
   }
 
   const multiValues: Record<string, number[]> = {};

@@ -27,12 +27,10 @@ export function SolvableField({
   min,
   step,
 }: SolvableFieldProps) {
-  const displayValue = mode === 'solve' && solvedValue !== undefined ? solvedValue : value;
-
   return (
     <div style={{ marginBottom: '0.75rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-        <span style={{ fontSize: '0.875rem' }}>
+        <span style={{ fontSize: '0.875rem' }} aria-hidden="true">
           {label}
           {unit && <span className="muted"> ({unit})</span>}
         </span>
@@ -42,7 +40,7 @@ export function SolvableField({
       </div>
       {mode === 'given' ? (
         <NumberField
-          label=""
+          label={label}
           value={value}
           onChange={onValueChange}
           min={min}
@@ -66,6 +64,7 @@ export function SolvableField({
         <button
           type="button"
           className={mode === 'given' ? 'active' : ''}
+          aria-pressed={mode === 'given'}
           style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
           onClick={() => onModeChange('given')}
         >
@@ -74,15 +73,13 @@ export function SolvableField({
         <button
           type="button"
           className={mode === 'solve' ? 'active' : ''}
+          aria-pressed={mode === 'solve'}
           style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
           onClick={() => onModeChange('solve')}
         >
           Solve
         </button>
       </div>
-      {mode === 'solve' && solvedValue !== undefined && (
-        <input type="hidden" value={displayValue} />
-      )}
     </div>
   );
 }

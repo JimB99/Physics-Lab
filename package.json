@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
-    "test": "npm run test -w physics-engine",
+    "test": "npm run test -w physics-engine && npm run test -w web",
+    "test:engine": "npm run test -w physics-engine",
+    "test:web": "npm run test -w web",
     "preview": "npm run preview -w web"
   }
 }

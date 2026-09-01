@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { ErrorBoundary } from './ErrorBoundary';
 import { NavBar } from './NavBar';
 
 export function AppShell() {
@@ -6,7 +7,9 @@ export function AppShell() {
     <div className="app-shell">
       <NavBar />
       <main className="main-content">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

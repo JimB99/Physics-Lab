@@ -71,4 +71,46 @@ describe('solveVertical1D', () => {
       expect(result.values.v0).toBeCloseTo(0, 2);
     }
   });
+
+  it('reports contradictory given values as overconstrained', () => {
+    const result = solveVertical1D(
+      fields([
+        ['h0', 'given', 100],
+        ['v0', 'given', 0],
+        ['impactTime', 'given', 1],
+        ['impactVelocity', 'solve'],
+      ]),
+      earthEnv,
+    );
+    expect(result.status).toBe('overconstrained');
+    if (result.status === 'overconstrained') {
+      expect(result.conflicts.join(' ')).toContain('impactTime');
+    }
+  });
+
+  it('accepts consistent redundant given values', () => {
+    const impactTime = Math.sqrt((2 * 10) / earthEnv.g);
+    const result = solveVertical1D(
+      fields([
+        ['h0', 'given', 10],
+        ['v0', 'given', 0],
+        ['impactTime', 'given', impactTime],
+        ['impactVelocity', 'solve'],
+      ]),
+      earthEnv,
+    );
+    expect(result.status).toBe('solved');
+  });
+
+  it('still reports a duplicated field with different values', () => {
+    const result = solveVertical1D(
+      fields([
+        ['h0', 'given', 10],
+        ['h0', 'given', 20],
+        ['impactTime', 'solve'],
+      ]),
+      earthEnv,
+    );
+    expect(result.status).toBe('overconstrained');
+  });
 });

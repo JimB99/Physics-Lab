@@ -1,4 +1,3 @@
-import { EclipticLongitude } from 'astronomy-engine';
 import { ORBITAL_BODY_MAP, ORBITAL_PLANETS } from './bodies';
 import { heliocentricEcliptic } from './ephemeris';
 import { getSolarSystemSnapshot } from './positions';
@@ -12,16 +11,31 @@ import type {
   PlanetPosition,
 } from './types';
 
+interface EclipticPoint {
+  xAu: number;
+  yAu: number;
+  zAu: number;
+  longitudeDeg: number;
+}
+
 function angularSeparationDeg(a: number, b: number): number {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
 }
 
-function planetLongitudes(date: Date): number[] {
-  return ORBITAL_PLANETS.map((p) => EclipticLongitude(p.body, date));
+function planetPoints(date: Date): EclipticPoint[] {
+  return ORBITAL_PLANETS.map((p) => {
+    const state = heliocentricEcliptic(p.body, date);
+    return {
+      xAu: state.xAu,
+      yAu: state.yAu,
+      zAu: state.zAu,
+      longitudeDeg: state.longitudeDeg,
+    };
+  });
 }
 
-function distanceAu(a: PlanetPosition, b: PlanetPosition): number {
+function separation(a: EclipticPoint, b: EclipticPoint): number {
   return Math.hypot(a.xAu - b.xAu, a.yAu - b.yAu, a.zAu - b.zAu);
 }
 
@@ -31,83 +45,80 @@ export function pairDistanceAu(bodyA: OrbitalPlanetId, bodyB: OrbitalPlanetId, d
   return Math.hypot(a.xAu - b.xAu, a.yAu - b.yAu, a.zAu - b.zAu);
 }
 
-function planetsOnly(positions: PlanetPosition[]): PlanetPosition[] {
-  return positions.filter((p) => p.id !== 'sun');
-}
-
-function scorePairwiseSum3D(positions: PlanetPosition[]): number {
-  const planets = planetsOnly(positions);
+function sumOfPairs<T>(items: T[], distance: (a: T, b: T) => number): number {
   let sum = 0;
-  for (let i = 0; i < planets.length; i++) {
-    for (let j = i + 1; j < planets.length; j++) {
-      sum += distanceAu(planets[i]!, planets[j]!);
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      sum += distance(items[i]!, items[j]!);
     }
   }
   return sum;
 }
 
-function scoreMaxPairwise3D(positions: PlanetPosition[]): number {
-  const planets = planetsOnly(positions);
+function maxOfPairs<T>(items: T[], distance: (a: T, b: T) => number): number {
   let max = 0;
-  for (let i = 0; i < planets.length; i++) {
-    for (let j = i + 1; j < planets.length; j++) {
-      max = Math.max(max, distanceAu(planets[i]!, planets[j]!));
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const d = distance(items[i]!, items[j]!);
+      if (d > max) max = d;
     }
   }
   return max;
 }
 
-function scoreChainByLongitude3D(positions: PlanetPosition[]): number {
-  const planets = [...planetsOnly(positions)].sort((a, b) => a.longitudeDeg - b.longitudeDeg);
-  let sum = 0;
-  for (let i = 0; i < planets.length - 1; i++) {
-    sum += distanceAu(planets[i]!, planets[i + 1]!);
+function chainScore<T extends { longitudeDeg: number }>(
+  items: T[],
+  distance: (a: T, b: T) => number,
+): number {
+  if (items.length < 2) return 0;
+  const sorted = [...items].sort((a, b) => a.longitudeDeg - b.longitudeDeg);
+  let total = 0;
+  let largest = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const link = distance(sorted[i]!, sorted[(i + 1) % sorted.length]!);
+    total += link;
+    if (link > largest) largest = link;
   }
-  return sum;
+  return total - largest;
+}
+
+export function clusterScoreAu(date: Date, metric: AlignmentMetric): number {
+  const points = planetPoints(date);
+  switch (metric) {
+    case 'pairwiseSum':
+      return sumOfPairs(points, separation);
+    case 'maxPairwise':
+      return maxOfPairs(points, separation);
+    case 'chainByLongitude':
+      return chainScore(points, separation);
+  }
+}
+
+export function clusterScore(date: Date, metric: AlignmentMetric): number {
+  const points = planetPoints(date);
+  const angular = (a: EclipticPoint, b: EclipticPoint) =>
+    angularSeparationDeg(a.longitudeDeg, b.longitudeDeg);
+  switch (metric) {
+    case 'pairwiseSum':
+      return sumOfPairs(points, angular);
+    case 'maxPairwise':
+      return maxOfPairs(points, angular);
+    case 'chainByLongitude':
+      return chainScore(points, angular);
+  }
 }
 
 function scorePositions3D(positions: PlanetPosition[], metric: AlignmentMetric): number {
+  const points: EclipticPoint[] = positions
+    .filter((p) => p.id !== 'sun')
+    .map((p) => ({ xAu: p.xAu, yAu: p.yAu, zAu: p.zAu, longitudeDeg: p.longitudeDeg }));
   switch (metric) {
     case 'pairwiseSum':
-      return scorePairwiseSum3D(positions);
+      return sumOfPairs(points, separation);
     case 'maxPairwise':
-      return scoreMaxPairwise3D(positions);
+      return maxOfPairs(points, separation);
     case 'chainByLongitude':
-      return scoreChainByLongitude3D(positions);
-  }
-}
-
-/** Lightweight search-phase score using ecliptic longitudes only. */
-export function clusterScore(date: Date, metric: AlignmentMetric): number {
-  const longitudes = planetLongitudes(date);
-
-  switch (metric) {
-    case 'pairwiseSum': {
-      let sum = 0;
-      for (let i = 0; i < longitudes.length; i++) {
-        for (let j = i + 1; j < longitudes.length; j++) {
-          sum += angularSeparationDeg(longitudes[i]!, longitudes[j]!);
-        }
-      }
-      return sum;
-    }
-    case 'maxPairwise': {
-      let max = 0;
-      for (let i = 0; i < longitudes.length; i++) {
-        for (let j = i + 1; j < longitudes.length; j++) {
-          max = Math.max(max, angularSeparationDeg(longitudes[i]!, longitudes[j]!));
-        }
-      }
-      return max;
-    }
-    case 'chainByLongitude': {
-      const sorted = [...longitudes].sort((a, b) => a - b);
-      let sum = 0;
-      for (let i = 0; i < sorted.length - 1; i++) {
-        sum += angularSeparationDeg(sorted[i]!, sorted[i + 1]!);
-      }
-      return sum;
-    }
+      return chainScore(points, separation);
   }
 }
 
@@ -117,15 +128,14 @@ export function findBestAlignment(
   metric: AlignmentMetric,
   scaleMode: DisplayScaleMode = 'true',
 ): AlignmentSearchResult | null {
-  const minimized = minimizeOnInterval(start, endExclusive, (date) => clusterScore(date, metric));
+  const minimized = minimizeOnInterval(start, endExclusive, (date) => clusterScoreAu(date, metric));
   if (!minimized) return null;
 
   const positions = getSolarSystemSnapshot(minimized.date, scaleMode).positions;
-  const score = scorePositions3D(positions, metric);
 
   return {
     date: minimized.date,
-    score,
+    score: scorePositions3D(positions, metric),
     metric,
     positions,
   };
