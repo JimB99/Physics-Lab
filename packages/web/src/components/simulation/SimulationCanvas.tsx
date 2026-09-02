@@ -3,6 +3,7 @@ import type { MotionSample } from 'physics-engine';
 import { formatNumber } from 'physics-engine';
 import { extent, prepareCanvas, useCanvasSize, usePrefersReducedMotion } from '../../lib/canvas';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { projectileXMarks } from '../../lib/trajectoryMarks';
 import { PlaybackControls } from './PlaybackControls';
 
 interface SimulationCanvasProps {
@@ -115,11 +116,14 @@ export function SimulationCanvas({
     if (!frame) return;
     const { ctx, width: w, height: h } = frame;
 
-    const pad = 30;
+    const padLeft = 36;
+    const padRight = isProjectile ? 36 : 12;
+    const padTop = 10;
+    const padBottom = isProjectile ? 44 : 28;
     const spanX = bounds.maxX - bounds.minX || 1;
     const spanY = bounds.maxY - bounds.minY || 1;
-    const toX = (x: number) => pad + ((x - bounds.minX) / spanX) * (w - 2 * pad);
-    const toY = (y: number) => h - pad - ((y - bounds.minY) / spanY) * (h - 2 * pad);
+    const toX = (x: number) => padLeft + ((x - bounds.minX) / spanX) * (w - padLeft - padRight);
+    const toY = (y: number) => h - padBottom - ((y - bounds.minY) / spanY) * (h - padTop - padBottom);
 
     const styles = getComputedStyle(document.documentElement);
     const borderColor = styles.getPropertyValue('--border').trim() || '#2d3a4f';
@@ -131,8 +135,8 @@ export function SimulationCanvas({
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(pad, toY(0));
-    ctx.lineTo(w - pad, toY(0));
+    ctx.moveTo(padLeft, toY(0));
+    ctx.lineTo(w - padRight, toY(0));
     ctx.stroke();
 
     ctx.fillStyle = mutedColor;
@@ -144,9 +148,37 @@ export function SimulationCanvas({
       ctx.fillText(`${formatNumber(value, 1)} m`, 4, y - 2);
       ctx.strokeStyle = borderColor;
       ctx.beginPath();
-      ctx.moveTo(pad, y);
-      ctx.lineTo(w - pad, y);
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(w - padRight, y);
       ctx.stroke();
+    }
+
+    if (isProjectile) {
+      const axisY = toY(0);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (const mark of projectileXMarks(samples)) {
+        const x = toX(mark.x);
+        ctx.save();
+        ctx.strokeStyle = mutedColor;
+        ctx.globalAlpha = 0.35;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, axisY);
+        ctx.stroke();
+        ctx.restore();
+        ctx.strokeStyle = mutedColor;
+        ctx.beginPath();
+        ctx.moveTo(x, axisY - 5);
+        ctx.lineTo(x, axisY + 5);
+        ctx.stroke();
+        ctx.fillStyle = mutedColor;
+        const caption = mark.kind === 'apex' ? 'apex' : 'land';
+        ctx.fillText(`${formatNumber(mark.x, 1)} m`, x, axisY + 7);
+        ctx.fillText(caption, x, axisY + 20);
+      }
+      ctx.textBaseline = 'alphabetic';
     }
 
     ctx.strokeStyle = accentColor;

@@ -20,7 +20,7 @@ interface UPlotChartProps {
 const AXIS_COLOR = '#8b9cb3';
 const GRID_COLOR = 'rgba(139, 156, 179, 0.18)';
 
-export function UPlotChart({ title, xLabel, yLabel, xData, series, height = 220 }: UPlotChartProps) {
+export function UPlotChart({ title, xLabel, yLabel, xData, series, height = 360 }: UPlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
 
@@ -84,5 +84,5 @@ export function UPlotChart({ title, xLabel, yLabel, xData, series, height = 220 
     return <p className="muted">No data to plot.</p>;
   }
 
-  return <div ref={containerRef} />;
+  return <div ref={containerRef} style={{ minHeight: height }} />;
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { ComparisonSeries } from 'physics-engine';
+import { formatNumber } from 'physics-engine';
 import { prepareCanvas, useCanvasSize } from '../../lib/canvas';
+import { mergeProjectileXMarks } from '../../lib/trajectoryMarks';
 
 interface CompareSimulationProps {
   series: ComparisonSeries[];
@@ -21,7 +23,10 @@ export function CompareSimulation({ series, isProjectile }: CompareSimulationPro
     if (!frame) return;
     const { ctx, width: w, height: h } = frame;
 
-    const pad = 30;
+    const padLeft = 36;
+    const padRight = isProjectile ? 36 : 12;
+    const padTop = 10;
+    const padBottom = isProjectile ? 44 : 28;
     let maxX = 1;
     let maxY = 1;
     for (const s of series) {
@@ -32,18 +37,50 @@ export function CompareSimulation({ series, isProjectile }: CompareSimulationPro
       }
     }
 
-    const toX = (x: number) => pad + (x / maxX) * (w - 2 * pad);
-    const toY = (y: number) => h - pad - (y / maxY) * (h - 2 * pad);
+    const toX = (x: number) => padLeft + (x / maxX) * (w - padLeft - padRight);
+    const toY = (y: number) => h - padBottom - (y / maxY) * (h - padTop - padBottom);
 
-    const laneWidth = (w - 2 * pad) / Math.max(series.length, 1);
-    const laneX = (index: number) => pad + laneWidth * (index + 0.5);
+    const laneWidth = (w - padLeft - padRight) / Math.max(series.length, 1);
+    const laneX = (index: number) => padLeft + laneWidth * (index + 0.5);
 
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2d3a4f';
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2d3a4f';
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b9cb3';
+
+    ctx.strokeStyle = borderColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(pad, toY(0));
-    ctx.lineTo(w - pad, toY(0));
+    ctx.moveTo(padLeft, toY(0));
+    ctx.lineTo(w - padRight, toY(0));
     ctx.stroke();
+
+    if (isProjectile) {
+      const axisY = toY(0);
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = mutedColor;
+      for (const mark of mergeProjectileXMarks(series, maxX)) {
+        const x = toX(mark.x);
+        ctx.save();
+        ctx.strokeStyle = mutedColor;
+        ctx.globalAlpha = 0.35;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, axisY);
+        ctx.stroke();
+        ctx.restore();
+        ctx.strokeStyle = mutedColor;
+        ctx.beginPath();
+        ctx.moveTo(x, axisY - 5);
+        ctx.lineTo(x, axisY + 5);
+        ctx.stroke();
+        const caption = mark.kind === 'apex' ? 'apex' : 'land';
+        ctx.fillText(`${formatNumber(mark.x, 1)} m`, x, axisY + 7);
+        ctx.fillText(caption, x, axisY + 20);
+      }
+      ctx.textBaseline = 'alphabetic';
+    }
 
     series.forEach((s, index) => {
       ctx.strokeStyle = s.color;
