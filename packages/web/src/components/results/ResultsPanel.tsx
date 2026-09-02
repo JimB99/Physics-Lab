@@ -18,12 +18,12 @@ interface ResultsPanelProps {
 export function ResultsPanel({ items, error, hint, actions }: ResultsPanelProps) {
   return (
     <div>
-      <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Results</h3>
+      <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Results</h3>
       {error && <p className="error">{error}</p>}
-      {hint && <p className="muted" style={{ fontSize: '0.85rem' }}>{hint}</p>}
-      <dl style={{ margin: 0 }}>
+      {hint && <p className="muted" style={{ fontSize: '0.8rem' }}>{hint}</p>}
+      <dl className="results-list">
         {items.map((item) => (
-          <div key={item.label} style={{ marginBottom: '0.6rem' }}>
+          <div key={item.label}>
             <dt className="muted" style={{ fontSize: '0.8rem' }}>{item.label}</dt>
             <dd style={{ margin: '0.1rem 0 0', fontFamily: 'var(--mono)', fontSize: '1rem' }}>
               {item.multi && item.multi.length > 1 ? (

@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ORBITAL_PLANETS } from 'physics-engine';
-import type { AlignmentMetric, DisplayScaleMode, OrbitalPlanetId } from 'physics-engine';
+import type { AlignmentMetric, AlignmentSearchKind, DisplayScaleMode, OrbitalPlanetId } from 'physics-engine';
 
 export type PlanetCalendarMode = 'snapshot' | 'alignment' | 'animate';
 
@@ -19,6 +19,7 @@ export interface PlanetCalendarParams {
   stepDays: number;
   scaleMode: DisplayScaleMode;
   alignmentMetric: AlignmentMetric;
+  searchKind: AlignmentSearchKind;
   pairA: OrbitalPlanetId;
   pairB: OrbitalPlanetId;
 }
@@ -39,6 +40,7 @@ const defaults: PlanetCalendarParams = {
   stepDays: 1,
   scaleMode: 'schematic',
   alignmentMetric: 'pairwiseSum',
+  searchKind: 'cluster',
   pairA: 'mars',
   pairB: 'jupiter',
 };
@@ -57,6 +59,7 @@ export const PLANET_CALENDAR_PARAM_KEYS: Record<keyof PlanetCalendarParams, stri
   stepDays: 'stepDays',
   scaleMode: 'scale',
   alignmentMetric: 'metric',
+  searchKind: 'search',
   pairA: 'pairA',
   pairB: 'pairB',
 };
@@ -86,7 +89,14 @@ export function usePlanetCalendarParams(): [PlanetCalendarParams, (patch: Partia
       scaleParam === 'true' || scaleParam === 'log' ? scaleParam : 'schematic';
     const metricParam = searchParams.get(keys.alignmentMetric);
     const alignmentMetric: AlignmentMetric =
-      metricParam === 'maxPairwise' || metricParam === 'chainByLongitude' ? metricParam : 'pairwiseSum';
+      metricParam === 'maxPairwise' ||
+      metricParam === 'chainByLongitude' ||
+      metricParam === 'collinear' ||
+      metricParam === 'syzygy'
+        ? metricParam
+        : 'pairwiseSum';
+    const searchParam = searchParams.get(keys.searchKind);
+    const searchKind: AlignmentSearchKind = searchParam === 'pair' ? 'pair' : 'cluster';
 
     return {
       mode,
@@ -102,6 +112,7 @@ export function usePlanetCalendarParams(): [PlanetCalendarParams, (patch: Partia
       stepDays: Math.max(1, parseIntParam(searchParams.get(keys.stepDays), defaults.stepDays)),
       scaleMode,
       alignmentMetric,
+      searchKind,
       pairA: parsePlanetParam(searchParams.get(keys.pairA), defaults.pairA),
       pairB: parsePlanetParam(searchParams.get(keys.pairB), defaults.pairB),
     };

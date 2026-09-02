@@ -2,6 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   computeComparisonTrajectories,
+  parseIsoDate,
+  formatIsoDate,
   resolveGravity,
   resolveAtmosphere,
   todayUtcDate,
@@ -76,14 +78,12 @@ export function ComparePage() {
   const orbitDate = useMemo(() => {
     const param = searchParams.get('orbitDate');
     if (!param) return todayUtcDate();
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(param);
-    if (!match) return todayUtcDate();
-    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0));
+    return parseIsoDate(param) ?? todayUtcDate();
   }, [searchParams]);
 
   const setOrbitDate = useCallback(
     (date: Date) => {
-      const value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+      const value = formatIsoDate(date);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -138,40 +138,45 @@ export function ComparePage() {
   };
 
   return (
-    <div style={{ padding: '1rem 1.5rem', maxWidth: 1200, margin: '0 auto' }}>
-      <h1>Comparison Mode</h1>
-      <p className="muted">Compare up to three scenarios on the same graphs and simulation.</p>
+    <div className="compare-page">
+      <h1 className="workspace__title">Comparison Mode</h1>
+      <p className="compare-hint muted">
+        Compare up to three variants. The full setup lives in the URL, so you can share a link.
+      </p>
 
-      <div className="card" style={{ marginTop: '1rem' }}>
-        <CompareConfigurator
-          scenario={scenario}
-          compareType={compareType}
-          variants={variants}
-          onScenarioChange={(next) =>
-            setCompareParams({
-              scenario: next,
-              compareType: next === 'vertical1d' && compareType === 'angle' ? 'environment' : compareType,
-            })
-          }
-          onCompareTypeChange={(next) => setCompareParams({ compareType: next })}
-          onVariantChange={updateVariant}
-          onAddVariant={addVariant}
-          onRemoveVariant={removeVariant}
-        />
+      <div className="compare-layout">
+        <div className="card">
+          <CompareConfigurator
+            scenario={scenario}
+            compareType={compareType}
+            variants={variants}
+            onScenarioChange={(next) =>
+              setCompareParams({
+                scenario: next,
+                compareType: next === 'vertical1d' && compareType === 'angle' ? 'environment' : compareType,
+              })
+            }
+            onCompareTypeChange={(next) => setCompareParams({ compareType: next })}
+            onVariantChange={updateVariant}
+            onAddVariant={addVariant}
+            onRemoveVariant={removeVariant}
+          />
+        </div>
+
+        <div>
+          <div className="card">
+            <h2 style={{ fontSize: '1.05rem', marginTop: 0 }}>Simulation</h2>
+            <CompareSimulation series={series} isProjectile={scenario === 'projectile'} />
+          </div>
+          <div className="card" style={{ marginTop: '0.75rem' }}>
+            <h2 style={{ fontSize: '1.05rem', marginTop: 0 }}>Summary</h2>
+            <CompareSummaryTable series={series} isProjectile={scenario === 'projectile'} />
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Simulation</h2>
-        <CompareSimulation series={series} isProjectile={scenario === 'projectile'} />
-      </div>
-
-      <div className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Summary</h2>
-        <CompareSummaryTable series={series} isProjectile={scenario === 'projectile'} />
-      </div>
-
-      <div className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Graphs</h2>
+        <h2 style={{ fontSize: '1.05rem', marginTop: 0 }}>Graphs</h2>
         <CompareGraphs series={series} isProjectile={scenario === 'projectile'} />
       </div>
 

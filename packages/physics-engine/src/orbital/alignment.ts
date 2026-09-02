@@ -1,5 +1,11 @@
 import { ORBITAL_BODY_MAP, ORBITAL_PLANETS } from './bodies';
 import { heliocentricEcliptic } from './ephemeris';
+import {
+  bestFitLine2d,
+  collinearRmsAu,
+  syzygyAxisDeg,
+  syzygyRmsDeg,
+} from './geometry';
 import { getSolarSystemSnapshot } from './positions';
 import { minimizeOnInterval } from './search';
 import type {
@@ -17,6 +23,10 @@ interface EclipticPoint {
   zAu: number;
   longitudeDeg: number;
 }
+
+export type AlignmentGuide =
+  | { kind: 'line'; originX: number; originY: number; directionX: number; directionY: number }
+  | { kind: 'axis'; longitudeDeg: number };
 
 function angularSeparationDeg(a: number, b: number): number {
   const diff = Math.abs(a - b) % 360;
@@ -82,44 +92,40 @@ function chainScore<T extends { longitudeDeg: number }>(
   return total - largest;
 }
 
-export function clusterScoreAu(date: Date, metric: AlignmentMetric): number {
-  const points = planetPoints(date);
+function scorePoints(points: EclipticPoint[], metric: AlignmentMetric, space: 'au' | 'deg'): number {
   switch (metric) {
     case 'pairwiseSum':
-      return sumOfPairs(points, separation);
+      return space === 'au'
+        ? sumOfPairs(points, separation)
+        : sumOfPairs(points, (a, b) => angularSeparationDeg(a.longitudeDeg, b.longitudeDeg));
     case 'maxPairwise':
-      return maxOfPairs(points, separation);
+      return space === 'au'
+        ? maxOfPairs(points, separation)
+        : maxOfPairs(points, (a, b) => angularSeparationDeg(a.longitudeDeg, b.longitudeDeg));
     case 'chainByLongitude':
-      return chainScore(points, separation);
+      return space === 'au'
+        ? chainScore(points, separation)
+        : chainScore(points, (a, b) => angularSeparationDeg(a.longitudeDeg, b.longitudeDeg));
+    case 'collinear':
+      return collinearRmsAu(points);
+    case 'syzygy':
+      return syzygyRmsDeg(points.map((p) => p.longitudeDeg));
   }
+}
+
+export function clusterScoreAu(date: Date, metric: AlignmentMetric): number {
+  return scorePoints(planetPoints(date), metric, 'au');
 }
 
 export function clusterScore(date: Date, metric: AlignmentMetric): number {
-  const points = planetPoints(date);
-  const angular = (a: EclipticPoint, b: EclipticPoint) =>
-    angularSeparationDeg(a.longitudeDeg, b.longitudeDeg);
-  switch (metric) {
-    case 'pairwiseSum':
-      return sumOfPairs(points, angular);
-    case 'maxPairwise':
-      return maxOfPairs(points, angular);
-    case 'chainByLongitude':
-      return chainScore(points, angular);
-  }
+  return scorePoints(planetPoints(date), metric, 'deg');
 }
 
-function scorePositions3D(positions: PlanetPosition[], metric: AlignmentMetric): number {
+function scorePositions(positions: PlanetPosition[], metric: AlignmentMetric): number {
   const points: EclipticPoint[] = positions
     .filter((p) => p.id !== 'sun')
     .map((p) => ({ xAu: p.xAu, yAu: p.yAu, zAu: p.zAu, longitudeDeg: p.longitudeDeg }));
-  switch (metric) {
-    case 'pairwiseSum':
-      return sumOfPairs(points, separation);
-    case 'maxPairwise':
-      return maxOfPairs(points, separation);
-    case 'chainByLongitude':
-      return chainScore(points, separation);
-  }
+  return scorePoints(points, metric, 'au');
 }
 
 export function findBestAlignment(
@@ -135,7 +141,7 @@ export function findBestAlignment(
 
   return {
     date: minimized.date,
-    score: scorePositions3D(positions, metric),
+    score: scorePositions(positions, metric),
     metric,
     positions,
   };
@@ -172,5 +178,39 @@ export function metricLabel(metric: AlignmentMetric): string {
       return 'Maximum planet-pair distance (AU) — minimized when the spread is smallest';
     case 'chainByLongitude':
       return 'Chain distance along ecliptic longitude order (AU) — diagram alignment proxy';
+    case 'collinear':
+      return 'RMS distance to the best-fit ecliptic line (AU) — planets in a straight line';
+    case 'syzygy':
+      return 'RMS angle to the best-fit Sun axis (°) — planets on a line through the Sun';
   }
+}
+
+export function metricUnit(metric: AlignmentMetric): 'AU' | '°' {
+  return metric === 'syzygy' ? '°' : 'AU';
+}
+
+export function alignmentGuide(
+  positions: PlanetPosition[],
+  metric: AlignmentMetric,
+): AlignmentGuide | null {
+  const planets = positions.filter((p) => p.id !== 'sun');
+  if (planets.length < 2) return null;
+
+  if (metric === 'collinear') {
+    const line = bestFitLine2d(planets.map((p) => ({ xAu: p.displayX, yAu: p.displayY })));
+    if (!line) return null;
+    return {
+      kind: 'line',
+      originX: line.originX,
+      originY: line.originY,
+      directionX: line.directionX,
+      directionY: line.directionY,
+    };
+  }
+
+  if (metric === 'syzygy') {
+    return { kind: 'axis', longitudeDeg: syzygyAxisDeg(planets.map((p) => p.longitudeDeg)) };
+  }
+
+  return null;
 }

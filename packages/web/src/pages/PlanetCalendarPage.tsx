@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  CALENDAR_YEAR_MAX,
+  CALENDAR_YEAR_MIN,
   ORBITAL_PLANETS,
   PLANET_CALENDAR_PRESETS,
   addDays,
+  alignmentGuide,
   applyPlanetCalendarPreset,
   formatIsoDate,
   getSolarSystemSnapshot,
+  metricUnit,
   parseDateParts,
   todayUtcDate,
   validateDateParts,
@@ -40,11 +44,11 @@ function DateFields({
   onChange: (patch: { day?: number; month?: number; year?: number }) => void;
 }) {
   return (
-    <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.75rem' }}>
+    <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.5rem' }}>
       <legend className="muted" style={{ fontSize: '0.75rem', padding: 0 }}>
         {legend}
       </legend>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '0.35rem' }}>
         <NumberField
           label="Day"
           value={day}
@@ -64,8 +68,8 @@ function DateFields({
         <NumberField
           label="Year"
           value={year}
-          min={1}
-          max={9999}
+          min={CALENDAR_YEAR_MIN}
+          max={CALENDAR_YEAR_MAX}
           integer
           onChange={(next) => onChange({ year: next })}
         />
@@ -150,6 +154,7 @@ export function PlanetCalendarPage() {
     endExclusive: rangeEnd,
     metric: params.alignmentMetric,
     scaleMode: params.scaleMode,
+    searchKind: params.searchKind,
     pairA: params.pairA,
     pairB: params.pairB,
   });
@@ -160,12 +165,22 @@ export function PlanetCalendarPage() {
       : snapshotDate;
 
   const displayDate =
-    params.mode === 'alignment' && alignmentResult ? alignmentResult.date : activeDate;
+    params.mode === 'alignment'
+      ? (params.searchKind === 'pair' ? pairResult?.date : alignmentResult?.date) ?? activeDate
+      : activeDate;
 
   const positions = useMemo(() => {
-    if (params.mode === 'alignment' && alignmentResult) return alignmentResult.positions;
+    if (params.mode === 'alignment') {
+      if (params.searchKind === 'pair' && pairResult) return pairResult.positions;
+      if (params.searchKind === 'cluster' && alignmentResult) return alignmentResult.positions;
+    }
     return getSolarSystemSnapshot(displayDate, params.scaleMode).positions;
-  }, [params.mode, alignmentResult, displayDate, params.scaleMode]);
+  }, [params.mode, params.searchKind, alignmentResult, pairResult, displayDate, params.scaleMode]);
+
+  const guide = useMemo(() => {
+    if (params.mode !== 'alignment' || params.searchKind !== 'cluster') return null;
+    return alignmentGuide(positions, params.alignmentMetric);
+  }, [params.mode, params.searchKind, params.alignmentMetric, positions]);
 
   useEffect(() => {
     if (!playing || !animationMeta || animationMeta.frames === 0) return;
@@ -187,21 +202,25 @@ export function PlanetCalendarPage() {
     if (params.mode !== 'alignment') return undefined;
     if (searching) return 'Searching…';
     const parts: string[] = [];
-    if (alignmentResult) {
-      parts.push(
-        `Best cluster (${params.alignmentMetric}): ${alignmentResult.score.toFixed(3)} AU on ${formatIsoDate(alignmentResult.date)}`,
-      );
-    } else {
-      parts.push('No dates in the selected range.');
-    }
-    if (pairResult) {
+    const unit = metricUnit(params.alignmentMetric);
+    if (params.searchKind === 'cluster') {
+      if (alignmentResult) {
+        parts.push(
+          `Best ${params.alignmentMetric}: ${alignmentResult.score.toFixed(3)} ${unit} on ${formatIsoDate(alignmentResult.date)}`,
+        );
+      } else {
+        parts.push('No dates in the selected range.');
+      }
+    } else if (pairResult) {
       parts.push(
         `Closest ${pairResult.bodyA}–${pairResult.bodyB}: ${pairResult.distanceAu.toFixed(3)} AU on ${formatIsoDate(pairResult.date)}`,
       );
+    } else {
+      parts.push('Choose two different planets, or widen the date range.');
     }
     if (searchError) parts.push(`Search error: ${searchError}`);
     return parts.join(' · ');
-  }, [params.mode, params.alignmentMetric, alignmentResult, pairResult, searching, searchError]);
+  }, [params.mode, params.searchKind, params.alignmentMetric, alignmentResult, pairResult, searching, searchError]);
 
   const setToday = () => {
     const today = todayUtcDate();
@@ -217,39 +236,44 @@ export function PlanetCalendarPage() {
       title="Planet Calendar"
       inputs={
         <div>
-          <p className="muted" style={{ fontSize: '0.9rem' }}>
-            Heliocentric solar-system positions from VSOP87. Pick a date, find a cluster window, or animate.
+          <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 0.5rem' }}>
+            VSOP87 heliocentric positions. Years {CALENDAR_YEAR_MIN}–{CALENDAR_YEAR_MAX} (UTC).
           </p>
-          <Link to="/solar-system" className="muted" style={{ fontSize: '0.85rem' }}>
+          <Link to="/solar-system" className="muted" style={{ fontSize: '0.8rem' }}>
             ← Solar System hub
           </Link>
 
-          <div style={{ marginTop: '1rem', marginBottom: '0.75rem' }}>
-            <span className="muted" style={{ fontSize: '0.8rem' }}>Presets</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
+          <label className="field" style={{ marginTop: '0.75rem' }}>
+            <span className="field__label muted">Presets</span>
+            <select
+              className="select"
+              defaultValue=""
+              onChange={(event) => {
+                const preset = PLANET_CALENDAR_PRESETS.find((item) => item.id === event.target.value);
+                if (preset) setParams(applyPlanetCalendarPreset(preset.id));
+                event.currentTarget.value = '';
+              }}
+            >
+              <option value="" disabled>
+                Load a preset…
+              </option>
               {PLANET_CALENDAR_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  title={preset.description}
-                  onClick={() => setParams(applyPlanetCalendarPreset(preset.id))}
-                  style={{ textAlign: 'left' }}
-                >
+                <option key={preset.id} value={preset.id} title={preset.description}>
                   {preset.label}
-                </button>
+                </option>
               ))}
-            </div>
-          </div>
+            </select>
+          </label>
 
-          <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-            <span className="muted" style={{ fontSize: '0.8rem' }}>Mode</span>
+          <label className="field">
+            <span className="field__label muted">Mode</span>
             <select
               value={params.mode}
               onChange={(e) => setParams({ mode: e.target.value as typeof params.mode })}
               className="select"
             >
               <option value="snapshot">Position on date</option>
-              <option value="alignment">Find best cluster in range</option>
+              <option value="alignment">Find best date in range</option>
               <option value="animate">Animate range</option>
             </select>
           </label>
@@ -322,63 +346,82 @@ export function PlanetCalendarPage() {
 
           {params.mode === 'alignment' && (
             <>
-              <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
-                Uses fast numerical search — no day-by-day scan.
-              </p>
-              <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-                <span className="muted" style={{ fontSize: '0.8rem' }}>Cluster metric</span>
+              <label className="field">
+                <span className="field__label muted">Find</span>
                 <select
-                  value={params.alignmentMetric}
-                  onChange={(e) => setParams({ alignmentMetric: e.target.value as typeof params.alignmentMetric })}
+                  value={params.searchKind}
+                  onChange={(e) => setParams({ searchKind: e.target.value as typeof params.searchKind })}
                   className="select"
                 >
-                  <option value="pairwiseSum">Minimize sum of all pair distances</option>
-                  <option value="maxPairwise">Minimize maximum pair distance</option>
-                  <option value="chainByLongitude">Minimize longitude chain distance</option>
+                  <option value="cluster">Best cluster or line (all planets)</option>
+                  <option value="pair">Closest approach of two planets</option>
                 </select>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <label>
-                  <span className="muted" style={{ fontSize: '0.8rem' }}>Pair A</span>
+              {params.searchKind === 'cluster' && (
+                <label className="field">
+                  <span className="field__label muted">Metric</span>
                   <select
-                    value={params.pairA}
-                    onChange={(e) => setParams({ pairA: e.target.value as typeof params.pairA })}
+                    value={params.alignmentMetric}
+                    onChange={(e) => setParams({ alignmentMetric: e.target.value as typeof params.alignmentMetric })}
                     className="select"
                   >
-                    {ORBITAL_PLANETS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
+                    <option value="pairwiseSum">Tightest cluster (sum of distances)</option>
+                    <option value="maxPairwise">Smallest spread (max pair distance)</option>
+                    <option value="chainByLongitude">Longitude chain</option>
+                    <option value="collinear">Straightest line (ecliptic plane)</option>
+                    <option value="syzygy">Line through the Sun</option>
                   </select>
                 </label>
-                <label>
-                  <span className="muted" style={{ fontSize: '0.8rem' }}>Pair B</span>
-                  <select
-                    value={params.pairB}
-                    onChange={(e) => setParams({ pairB: e.target.value as typeof params.pairB })}
-                    className="select"
-                  >
-                    {ORBITAL_PLANETS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              )}
+              {params.searchKind === 'pair' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <label>
+                    <span className="muted" style={{ fontSize: '0.8rem' }}>Planet A</span>
+                    <select
+                      value={params.pairA}
+                      onChange={(e) => setParams({ pairA: e.target.value as typeof params.pairA })}
+                      className="select"
+                    >
+                      {ORBITAL_PLANETS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="muted" style={{ fontSize: '0.8rem' }}>Planet B</span>
+                    <select
+                      value={params.pairB}
+                      onChange={(e) => setParams({ pairB: e.target.value as typeof params.pairB })}
+                      className="select"
+                    >
+                      {ORBITAL_PLANETS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
             </>
           )}
 
-          <label style={{ display: 'block', marginTop: '0.75rem' }}>
-            <span className="muted" style={{ fontSize: '0.8rem' }}>Display scale</span>
+          <label className="field" style={{ marginTop: '0.5rem' }}>
+            <span className="field__label muted">Display scale</span>
             <select
               value={params.scaleMode}
               onChange={(e) => setParams({ scaleMode: e.target.value as typeof params.scaleMode })}
               className="select"
             >
-              <option value="schematic">Schematic spacing (readable orbits)</option>
-              <option value="log">Logarithmic distance (all planets visible)</option>
+              <option value="schematic">Schematic spacing</option>
+              <option value="log">Logarithmic distance</option>
               <option value="true">True ecliptic distances (AU)</option>
             </select>
           </label>
           <ScaleEducationCallout scaleMode={params.scaleMode} />
+          {params.mode === 'alignment' && params.searchKind === 'cluster' && params.alignmentMetric === 'collinear' && params.scaleMode === 'schematic' && (
+            <p className="muted" style={{ fontSize: '0.75rem' }}>
+              A geometric line is easiest to see in true or log scale.
+            </p>
+          )}
 
           {error && <p className="error">{error}</p>}
         </div>
@@ -387,7 +430,12 @@ export function PlanetCalendarPage() {
         <div>
           {!error ? (
             <>
-              <SolarSystemCanvas positions={positions} title={title} scaleMode={params.scaleMode} />
+              <SolarSystemCanvas
+                positions={positions}
+                title={title}
+                scaleMode={params.scaleMode}
+                guide={guide}
+              />
               {params.mode === 'animate' && animationMeta && animationMeta.frames > 0 && (
                 <PlaybackControls
                   playing={playing}

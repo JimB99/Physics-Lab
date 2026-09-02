@@ -10,6 +10,7 @@ import { ResultsPanel } from '../components/results/ResultsPanel';
 import { ResultsActions } from '../components/results/ResultsActions';
 import { PresetBar } from '../components/inputs/PresetBar';
 import { PROJECTILE_PRESETS } from '../lib/scenarioPresets';
+import { PROJECTILE_DEFAULT_MODES, PROJECTILE_FIELD_IDS, resolveFieldModes } from '../lib/fieldModes';
 import { SimulationCanvas } from '../components/simulation/SimulationCanvas';
 import { WorkspaceTabs } from '../components/WorkspaceTabs';
 import { useScenarioParams } from '../hooks/useScenarioParams';
@@ -17,11 +18,7 @@ import { useMotionScenario } from '../hooks/useMotionScenario';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDragSettings } from '../hooks/useDragSettings';
 import { useImpactSettings } from '../hooks/useImpactSettings';
-
-const PROJECTILE_FIELDS = [
-  'h0', 'v0', 'angle', 'vx', 'vy', 't', 'x', 'y', 'v', 'range', 'flightTime',
-  'maxHeight', 'impactVelocity', 'impactAngle', 'timeToMaxHeight',
-] as const;
+import { FieldGroup } from '../components/inputs/FieldGroup';
 
 const FIELD_LABELS: Record<string, { label: string; unit: string; default: number }> = {
   h0: { label: 'Initial height h₀', unit: 'm', default: 0 },
@@ -41,31 +38,13 @@ const FIELD_LABELS: Record<string, { label: string; unit: string; default: numbe
   timeToMaxHeight: { label: 'Time to max height', unit: 's', default: 0 },
 };
 
-const DEFAULT_MODES: Record<string, 'given' | 'solve'> = {
-  h0: 'given',
-  v0: 'given',
-  angle: 'given',
-  vx: 'solve',
-  vy: 'solve',
-  t: 'solve',
-  x: 'solve',
-  y: 'solve',
-  v: 'solve',
-  range: 'solve',
-  flightTime: 'solve',
-  maxHeight: 'solve',
-  impactVelocity: 'solve',
-  impactAngle: 'solve',
-  timeToMaxHeight: 'solve',
-};
-
 export function ProjectilePage() {
   useDocumentTitle('Projectile Motion');
   const [dragSettings, setDragSettings] = useDragSettings();
   const [impact, setImpact] = useImpactSettings();
 
   const fullDefaults = useMemo(() => {
-    const numeric = Object.fromEntries(PROJECTILE_FIELDS.map((f) => [f, FIELD_LABELS[f]!.default]));
+    const numeric = Object.fromEntries(PROJECTILE_FIELD_IDS.map((f) => [f, FIELD_LABELS[f]!.default]));
     return {
       ...numeric,
       planet: 'earth' as CelestialBodyId,
@@ -76,13 +55,10 @@ export function ProjectilePage() {
 
   const [values, urlModes, setValue, setMode] = useScenarioParams(fullDefaults);
 
-  const modes = useMemo(() => {
-    const m = { ...DEFAULT_MODES };
-    for (const key of Object.keys(urlModes)) {
-      if (key in m && urlModes[key]) m[key] = urlModes[key]!;
-    }
-    return m;
-  }, [urlModes]);
+  const modes = useMemo(
+    () => resolveFieldModes(PROJECTILE_DEFAULT_MODES, urlModes),
+    [urlModes],
+  );
 
   const planet = (values.planet as CelestialBodyId) ?? 'earth';
   const rawCustomG = Number(values.customG);
@@ -97,7 +73,7 @@ export function ProjectilePage() {
     planet,
     customG,
     mass,
-    fieldIds: [...PROJECTILE_FIELDS],
+    fieldIds: [...PROJECTILE_FIELD_IDS],
     dragSettings,
   });
 
@@ -118,7 +94,7 @@ export function ProjectilePage() {
           ? scenario.solveResult.message
           : undefined;
 
-  const resultItems = PROJECTILE_FIELDS.filter((f) => modes[f] === 'solve').map((f) => ({
+  const resultItems = PROJECTILE_FIELD_IDS.filter((f) => modes[f] === 'solve').map((f) => ({
     label: FIELD_LABELS[f]!.label,
     value: solved[f],
     unit: FIELD_LABELS[f]!.unit,
@@ -131,12 +107,26 @@ export function ProjectilePage() {
 
   const impactSpeed = scenario.summary?.impactSpeed;
 
+  const field = (f: (typeof PROJECTILE_FIELD_IDS)[number]) => (
+    <SolvableField
+      key={f}
+      id={f}
+      label={FIELD_LABELS[f]!.label}
+      unit={FIELD_LABELS[f]!.unit}
+      mode={modes[f] ?? 'solve'}
+      value={(values[f] as number) ?? FIELD_LABELS[f]!.default}
+      solvedValue={solved[f]}
+      onModeChange={(m) => setMode(f, m)}
+      onValueChange={(v) => setValue(f, v)}
+    />
+  );
+
   return (
     <WorkspaceLayout
       title="Projectile Motion"
       inputs={
         <div>
-          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+          <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.6rem' }}>
             Object launched at an angle under gravity.
           </p>
           <PresetBar presets={PROJECTILE_PRESETS} />
@@ -163,20 +153,25 @@ export function ProjectilePage() {
             onStoppingDistanceChange={(stoppingDistance) => setImpact({ stoppingDistance })}
             onContactAreaChange={(contactArea) => setImpact({ contactArea })}
           />
-          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', marginTop: '1rem' }}>Problem fields</h3>
-          {PROJECTILE_FIELDS.map((f) => (
-            <SolvableField
-              key={f}
-              id={f}
-              label={FIELD_LABELS[f]!.label}
-              unit={FIELD_LABELS[f]!.unit}
-              mode={modes[f] ?? 'solve'}
-              value={(values[f] as number) ?? FIELD_LABELS[f]!.default}
-              solvedValue={solved[f]}
-              onModeChange={(m) => setMode(f, m)}
-              onValueChange={(v) => setValue(f, v)}
-            />
-          ))}
+          <FieldGroup title="Launch" defaultOpen>
+            {(['h0', 'v0', 'angle', 'vx', 'vy'] as const).map(field)}
+          </FieldGroup>
+          <FieldGroup
+            title="At time t"
+            defaultOpen={(['t', 'x', 'y', 'v'] as const).some((f) => modes[f] === 'given')}
+          >
+            {(['t', 'x', 'y', 'v'] as const).map(field)}
+          </FieldGroup>
+          <FieldGroup
+            title="Landing and apex"
+            defaultOpen={
+              (['range', 'flightTime', 'impactVelocity', 'impactAngle', 'maxHeight', 'timeToMaxHeight'] as const).some(
+                (f) => modes[f] === 'given',
+              )
+            }
+          >
+            {(['range', 'flightTime', 'impactVelocity', 'impactAngle', 'maxHeight', 'timeToMaxHeight'] as const).map(field)}
+          </FieldGroup>
         </div>
       }
       simulation={

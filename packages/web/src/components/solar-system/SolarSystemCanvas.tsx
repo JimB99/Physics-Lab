@@ -1,19 +1,51 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DisplayScaleMode, PlanetPosition } from 'physics-engine';
+import type { AlignmentGuide, DisplayScaleMode, PlanetPosition } from 'physics-engine';
 import { extent, prepareCanvas, useCanvasSize } from '../../lib/canvas';
+import { identityView, panBy, projectPoint, zoomAt, type ViewTransform } from '../../lib/viewTransform';
 
 interface SolarSystemCanvasProps {
   positions: PlanetPosition[];
   title: string;
   scaleMode: DisplayScaleMode;
+  guide?: AlignmentGuide | null;
 }
 
-export function SolarSystemCanvas({ positions, title, scaleMode }: SolarSystemCanvasProps) {
+export function SolarSystemCanvas({ positions, title, scaleMode, guide }: SolarSystemCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const projectionRef = useRef<{ toCanvas: (x: number, y: number) => { x: number; y: number } } | null>(null);
+  const projectionRef = useRef<{
+    toCanvas: (x: number, y: number) => { x: number; y: number };
+  } | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState<PlanetPosition | null>(null);
+  const [view, setView] = useState<ViewTransform>(identityView);
   const { width, height } = useCanvasSize(wrapperRef, 1);
+
+  useEffect(() => {
+    setView(identityView());
+  }, [scaleMode]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      setView((current) =>
+        zoomAt(
+          current,
+          event.clientX - rect.left,
+          event.clientY - rect.top,
+          width / 2,
+          height / 2,
+          factor,
+        ),
+      );
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [width, height]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,10 +70,7 @@ export function SolarSystemCanvas({ positions, title, scaleMode }: SolarSystemCa
     const cy = (minY + maxY) / 2;
     const scale = (Math.min(w, h) - 2 * pad) / span;
 
-    const toCanvas = (x: number, y: number) => ({
-      x: w / 2 + (x - cx) * scale,
-      y: h / 2 - (y - cy) * scale,
-    });
+    const toCanvas = (x: number, y: number) => projectPoint(x, y, cx, cy, scale, w, h, view);
 
     projectionRef.current = { toCanvas };
 
@@ -60,12 +89,47 @@ export function SolarSystemCanvas({ positions, title, scaleMode }: SolarSystemCa
 
     for (const planet of planets) {
       const center = toCanvas(0, 0);
-      const orbitR = planet.orbitDisplayRadius * scale;
+      const orbitR = planet.orbitDisplayRadius * scale * view.zoom;
       ctx.strokeStyle = '#2d3a4f';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(center.x, center.y, orbitR, 0, Math.PI * 2);
       ctx.stroke();
+    }
+
+    if (guide?.kind === 'line') {
+      const reach = span * 0.75;
+      const a = toCanvas(
+        guide.originX - guide.directionX * reach,
+        guide.originY - guide.directionY * reach,
+      );
+      const b = toCanvas(
+        guide.originX + guide.directionX * reach,
+        guide.originY + guide.directionY * reach,
+      );
+      ctx.strokeStyle = 'rgba(240, 180, 41, 0.7)';
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (guide?.kind === 'axis') {
+      const angle = (guide.longitudeDeg * Math.PI) / 180;
+      const reach = maxOrbit * 1.15;
+      const a = toCanvas(-reach * Math.cos(angle), -reach * Math.sin(angle));
+      const b = toCanvas(reach * Math.cos(angle), reach * Math.sin(angle));
+      ctx.strokeStyle = 'rgba(77, 163, 255, 0.7)';
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     const sun = positions.find((p) => p.id === 'sun');
@@ -97,17 +161,35 @@ export function SolarSystemCanvas({ positions, title, scaleMode }: SolarSystemCa
       ctx.arc(x, y, hovered.markerSize + 5, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [positions, title, scaleMode, width, height, hovered]);
+  }, [positions, title, scaleMode, width, height, hovered, view, guide]);
 
   return (
-    <div ref={wrapperRef} style={{ maxWidth: 560, margin: '0 auto' }}>
+    <div ref={wrapperRef} style={{ width: '100%', maxWidth: 640, margin: '0 auto' }}>
       <canvas
         ref={canvasRef}
         role="img"
-        style={{ display: 'block', width: '100%' }}
-        aria-label={`Solar system positions on ${title}`}
-        onMouseLeave={() => setHovered(null)}
-        onMouseMove={(event) => {
+        style={{ display: 'block', width: '100%', cursor: dragRef.current ? 'grabbing' : 'grab' }}
+        aria-label={`Solar system positions on ${title}. Scroll to zoom, drag to pan.`}
+        onDoubleClick={() => setView(identityView())}
+        onPointerDown={(event) => {
+          dragRef.current = { x: event.clientX, y: event.clientY };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+        }}
+        onPointerLeave={() => {
+          dragRef.current = null;
+          setHovered(null);
+        }}
+        onPointerMove={(event) => {
+          if (dragRef.current) {
+            const dx = event.clientX - dragRef.current.x;
+            const dy = event.clientY - dragRef.current.y;
+            dragRef.current = { x: event.clientX, y: event.clientY };
+            setView((current) => panBy(current, dx, dy));
+            return;
+          }
           const projection = projectionRef.current;
           const canvas = canvasRef.current;
           if (!projection || !canvas) return;
@@ -127,10 +209,21 @@ export function SolarSystemCanvas({ positions, title, scaleMode }: SolarSystemCa
           setHovered(closest);
         }}
       />
-      <p className="muted" style={{ textAlign: 'center', fontSize: '0.85rem', minHeight: '1.4em' }}>
+      <div className="zoom-bar">
+        <button type="button" onClick={() => setView((current) => zoomAt(current, width / 2, height / 2, width / 2, height / 2, 1.25))}>
+          Zoom in
+        </button>
+        <button type="button" onClick={() => setView((current) => zoomAt(current, width / 2, height / 2, width / 2, height / 2, 0.8))}>
+          Zoom out
+        </button>
+        <button type="button" onClick={() => setView(identityView())}>
+          Reset view
+        </button>
+      </div>
+      <p className="muted" style={{ textAlign: 'center', fontSize: '0.8rem', minHeight: '1.4em', margin: '0.35rem 0 0' }}>
         {hovered
           ? `${hovered.name}: λ = ${hovered.longitudeDeg.toFixed(1)}°, r = ${hovered.distanceAu.toFixed(3)} AU`
-          : 'Hover a planet for its longitude and distance.'}
+          : 'Scroll to zoom · drag to pan · hover a planet for λ and r'}
       </p>
     </div>
   );

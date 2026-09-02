@@ -21,7 +21,7 @@ export function EnvironmentPanel({
 }: EnvironmentPanelProps) {
   return (
     <div>
-      <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Environment</h3>
+      <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>Environment</h3>
       <PlanetSelector
         planet={planet}
         customG={customG}

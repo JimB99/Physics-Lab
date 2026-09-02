@@ -70,31 +70,14 @@ export function PlanetCalendarTabs({ scaleMode, alignmentMetric }: PlanetCalenda
 
 export function ScaleEducationCallout({ scaleMode }: { scaleMode: DisplayScaleMode }) {
   return (
-    <div
-      className="card"
-      style={{
-        marginTop: '0.75rem',
-        padding: '0.75rem',
-        background: 'var(--surface2)',
-        fontSize: '0.85rem',
-      }}
-    >
-      <strong>
-        {scaleMode === 'true'
-          ? 'True AU scale'
-          : scaleMode === 'log'
-            ? 'Logarithmic distance'
-            : 'Schematic spacing'}
-      </strong>
-      <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-        {scaleMode === 'true'
-          ? 'Orbit circles and planet dots use real ecliptic distances in AU. The inner planets crowd together near the Sun.'
-          : scaleMode === 'log'
-            ? 'Radii are log₁₀ of the true distance, so Mercury and Neptune are both visible while the ordering stays honest. Angles still come from VSOP87.'
-            : 'Orbit circles use fixed, evenly spaced radii so labels stay readable. Planet angles still come from VSOP87.'}{' '}
-        Alignment and pair-distance calculations always use true 3D AU positions.
-      </p>
-    </div>
+    <p className="muted" style={{ fontSize: '0.75rem', margin: '0.25rem 0 0.5rem' }}>
+      {scaleMode === 'true'
+        ? 'True AU distances — inner planets crowd near the Sun.'
+        : scaleMode === 'log'
+          ? 'Log radii keep Mercury and Neptune both visible. Angles are still VSOP87.'
+          : 'Evenly spaced orbits for readability. Angles are still VSOP87.'}{' '}
+      Alignment scores always use true 3D AU (or degrees for the Sun-axis metric).
+    </p>
   );
 }
 

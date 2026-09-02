@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { findBestAlignment, findClosestPair } from 'physics-engine';
 import type {
   AlignmentMetric,
+  AlignmentSearchKind,
   AlignmentSearchResult,
   DisplayScaleMode,
   OrbitalPlanetId,
@@ -22,6 +23,7 @@ interface UseAlignmentSearchOptions {
   endExclusive: Date;
   metric: AlignmentMetric;
   scaleMode: DisplayScaleMode;
+  searchKind: AlignmentSearchKind;
   pairA: OrbitalPlanetId;
   pairB: OrbitalPlanetId;
 }
@@ -29,7 +31,7 @@ interface UseAlignmentSearchOptions {
 const IDLE: AlignmentSearchState = { searching: false, alignment: null, pair: null, error: null };
 
 export function useAlignmentSearch(options: UseAlignmentSearchOptions): AlignmentSearchState {
-  const { enabled, start, endExclusive, metric, scaleMode, pairA, pairB } = options;
+  const { enabled, start, endExclusive, metric, scaleMode, searchKind, pairA, pairB } = options;
   const [state, setState] = useState<AlignmentSearchState>(IDLE);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
@@ -48,11 +50,14 @@ export function useAlignmentSearch(options: UseAlignmentSearchOptions): Alignmen
 
     if (typeof Worker === 'undefined') {
       try {
-        const alignment = findBestAlignment(new Date(startMs), new Date(endMs), metric, scaleMode);
+        const alignment =
+          searchKind === 'cluster'
+            ? findBestAlignment(new Date(startMs), new Date(endMs), metric, scaleMode)
+            : null;
         const pair =
-          pairA === pairB
-            ? null
-            : findClosestPair(pairA, pairB, new Date(startMs), new Date(endMs), scaleMode);
+          searchKind === 'pair' && pairA !== pairB
+            ? findClosestPair(pairA, pairB, new Date(startMs), new Date(endMs), scaleMode)
+            : null;
         setState({ searching: false, alignment, pair, error: null });
       } catch (error) {
         setState({
@@ -89,6 +94,7 @@ export function useAlignmentSearch(options: UseAlignmentSearchOptions): Alignmen
       endMs,
       metric,
       scaleMode,
+      searchKind,
       pairA,
       pairB,
     };
@@ -97,7 +103,7 @@ export function useAlignmentSearch(options: UseAlignmentSearchOptions): Alignmen
     return () => {
       worker.removeEventListener('message', onMessage);
     };
-  }, [enabled, startMs, endMs, metric, scaleMode, pairA, pairB]);
+  }, [enabled, startMs, endMs, metric, scaleMode, searchKind, pairA, pairB]);
 
   useEffect(
     () => () => {

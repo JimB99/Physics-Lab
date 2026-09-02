@@ -305,3 +305,168 @@ input:focus-visible,
   white-space: nowrap;
   border: 0;
 }
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace__title {
+  font-size: 1.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.workspace-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.solvable-field {
+  margin-bottom: 0.5rem;
+}
+
+.solvable-field .field {
+  margin-bottom: 0;
+}
+
+.solvable-field__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.solvable-field__label {
+  font-size: 0.8rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.mode-toggle button {
+  font-size: 0.7rem;
+  padding: 0.12rem 0.4rem;
+}
+
+.solvable-field__solved {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--solve);
+  border-radius: var(--radius);
+  background: rgba(61, 214, 140, 0.08);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.field-group {
+  margin-top: 0.35rem;
+}
+
+.field-group .disclosure {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.results-list {
+  margin: 0;
+}
+
+.results-list > div {
+  margin-bottom: 0.35rem;
+}
+
+.zoom-bar {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.zoom-bar button {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.compare-page {
+  padding: 0.75rem 1.25rem 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.compare-layout {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.compare-hint {
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+@media (min-width: 901px) {
+  .main-content:has(.workspace) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workspace {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1.25rem 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .workspace-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(200px, 250px);
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .workspace-panel {
+    overflow: auto;
+    min-height: 0;
+  }
+
+  .workspace-panel--sim {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workspace-tabs {
+    flex: 0 0 auto;
+    max-height: 32vh;
+    overflow: auto;
+    margin-top: 0.75rem;
+  }
+
+  .compare-layout {
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    padding: 1rem 1.25rem;
+  }
+}

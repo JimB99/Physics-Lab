@@ -223,17 +223,17 @@ export function solveVertical1D(
     }
   }
 
-  if (missing.length > 0) {
+  const values: Record<string, number> = {};
+  for (const id of toSolve) {
+    if (id in state) values[id] = state[id]!;
+  }
+
+  if (Object.keys(values).length === 0 && Object.keys(multiValues).length === 0) {
     return {
       status: 'underdetermined',
       message: 'Not enough information to solve for all fields',
       missing,
     };
-  }
-
-  const values: Record<string, number> = {};
-  for (const id of toSolve) {
-    if (id in state) values[id] = state[id]!;
   }
 
   return { status: 'solved', values, multiValues: Object.keys(multiValues).length ? multiValues : undefined, steps };

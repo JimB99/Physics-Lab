@@ -5,7 +5,14 @@ export type OrbitalPlanetId = Exclude<CelestialBodyId, 'moon' | 'custom'>;
 
 export type DisplayScaleMode = 'true' | 'schematic' | 'log';
 
-export type AlignmentMetric = 'pairwiseSum' | 'maxPairwise' | 'chainByLongitude';
+export type AlignmentMetric =
+  | 'pairwiseSum'
+  | 'maxPairwise'
+  | 'chainByLongitude'
+  | 'collinear'
+  | 'syzygy';
+
+export type AlignmentSearchKind = 'cluster' | 'pair';
 
 export interface PlanetPosition {
   id: OrbitalPlanetId;

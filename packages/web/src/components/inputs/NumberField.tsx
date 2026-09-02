@@ -10,6 +10,7 @@ interface NumberFieldProps {
   max?: number;
   step?: number;
   integer?: boolean;
+  ariaLabel?: string;
 }
 
 function clamp(value: number, min?: number, max?: number): number {
@@ -28,6 +29,7 @@ export function NumberField({
   min,
   max,
   integer = false,
+  ariaLabel,
 }: NumberFieldProps) {
   const [draft, setDraft] = useState(() => String(value));
 
@@ -70,7 +72,7 @@ export function NumberField({
         className="field__input"
         value={draft}
         disabled={disabled}
-        aria-label={label === '' ? undefined : label}
+        aria-label={ariaLabel ?? (label === '' ? undefined : label)}
         onChange={(e) => handleChange(e.target.value)}
         onBlur={handleBlur}
       />

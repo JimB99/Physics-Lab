@@ -28,58 +28,46 @@ export function SolvableField({
   step,
 }: SolvableFieldProps) {
   return (
-    <div style={{ marginBottom: '0.75rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-        <span style={{ fontSize: '0.875rem' }} aria-hidden="true">
+    <div className="solvable-field">
+      <div className="solvable-field__head">
+        <span className="solvable-field__label">
           {label}
           {unit && <span className="muted"> ({unit})</span>}
         </span>
-        <span className={mode === 'given' ? 'badge-given' : 'badge-solve'}>
-          {mode === 'given' ? 'Given' : 'Solve'}
-        </span>
+        <div className="mode-toggle">
+          <button
+            type="button"
+            className={mode === 'given' ? 'active' : ''}
+            aria-pressed={mode === 'given'}
+            onClick={() => onModeChange('given')}
+          >
+            Given
+          </button>
+          <button
+            type="button"
+            className={mode === 'solve' ? 'active' : ''}
+            aria-pressed={mode === 'solve'}
+            onClick={() => onModeChange('solve')}
+          >
+            Solve
+          </button>
+        </div>
       </div>
       {mode === 'given' ? (
         <NumberField
-          label={label}
+          label=""
+          ariaLabel={label}
           value={value}
           onChange={onValueChange}
           min={min}
           step={step}
         />
       ) : (
-        <div
-          style={{
-            padding: '0.45rem 0.6rem',
-            border: '1px solid var(--solve)',
-            borderRadius: 'var(--radius)',
-            background: 'rgba(61, 214, 140, 0.08)',
-            fontFamily: 'var(--mono)',
-          }}
-        >
+        <div className="solvable-field__solved">
           {solvedValue !== undefined ? formatNumber(solvedValue) : '—'}
           {unit && <span className="muted"> {unit}</span>}
         </div>
       )}
-      <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.35rem' }}>
-        <button
-          type="button"
-          className={mode === 'given' ? 'active' : ''}
-          aria-pressed={mode === 'given'}
-          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-          onClick={() => onModeChange('given')}
-        >
-          Given
-        </button>
-        <button
-          type="button"
-          className={mode === 'solve' ? 'active' : ''}
-          aria-pressed={mode === 'solve'}
-          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-          onClick={() => onModeChange('solve')}
-        >
-          Solve
-        </button>
-      </div>
     </div>
   );
 }

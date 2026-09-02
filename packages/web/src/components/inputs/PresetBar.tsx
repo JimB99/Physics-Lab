@@ -10,23 +10,27 @@ export function PresetBar({ presets }: PresetBarProps) {
   const location = useLocation();
 
   return (
-    <div style={{ marginBottom: '1rem' }}>
-      <span className="muted" style={{ fontSize: '0.8rem' }}>
-        Examples
-      </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
+    <label className="field" style={{ marginBottom: '0.75rem' }}>
+      <span className="field__label muted">Examples</span>
+      <select
+        className="select"
+        defaultValue=""
+        onChange={(event) => {
+          const preset = presets.find((item) => item.id === event.target.value);
+          if (!preset) return;
+          navigate(`${location.pathname}?${preset.query}`, { replace: true });
+          event.currentTarget.value = '';
+        }}
+      >
+        <option value="" disabled>
+          Load an example…
+        </option>
         {presets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            title={preset.description}
-            style={{ textAlign: 'left', fontSize: '0.85rem' }}
-            onClick={() => navigate(`${location.pathname}?${preset.query}`, { replace: true })}
-          >
+          <option key={preset.id} value={preset.id} title={preset.description}>
             {preset.label}
-          </button>
+          </option>
         ))}
-      </div>
-    </div>
+      </select>
+    </label>
   );
 }

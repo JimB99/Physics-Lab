@@ -24,6 +24,16 @@ describe('orbital dates', () => {
     expect(formatIsoDateTime(new Date(Date.UTC(2026, 8, 1, 7, 5)))).toBe('2026-09-01 07:05 UTC');
   });
 
+  it('round-trips years below 100 that Date.UTC would remap into 1900–1999', () => {
+    const date = parseDateParts(15, 3, 50);
+    expect(date.getUTCFullYear()).toBe(50);
+    expect(formatIsoDate(date)).toBe('0050-03-15');
+    expect(validateDateParts(1, 1, 1)).toBeNull();
+    expect(parseDateParts(1, 1, 1).getUTCFullYear()).toBe(1);
+    expect(parseDateParts(1, 1, 99).getUTCFullYear()).toBe(99);
+    expect(validateDateParts(1, 1, 10000)).toContain('Year must be between');
+  });
+
   it('parses ISO dates and rejects malformed ones', () => {
     expect(formatIsoDate(parseIsoDate('2026-02-28')!)).toBe('2026-02-28');
     expect(parseIsoDate('2026-02-30')).toBeNull();
@@ -61,6 +71,13 @@ describe('orbital ephemeris', () => {
 });
 
 describe('solar system snapshot', () => {
+  it('computes VSOP87 positions for years below 100', () => {
+    const snapshot = getSolarSystemSnapshot(parseDateParts(1, 1, 50), 'true');
+    const earth = snapshot.positions.find((p) => p.id === 'earth');
+    expect(earth?.distanceAu).toBeGreaterThan(0.9);
+    expect(earth?.distanceAu).toBeLessThan(1.1);
+  });
+
   it('returns nine bodies including the Sun', () => {
     const snapshot = getSolarSystemSnapshot(parseDateParts(20, 8, 2026), 'true');
     expect(snapshot.positions).toHaveLength(9);
@@ -125,6 +142,22 @@ describe('planet calendar presets', () => {
     const preset = applyPlanetCalendarPreset('planetParade');
     expect(preset.mode).toBe('alignment');
     expect(preset.alignmentMetric).toBe('pairwiseSum');
+    expect(preset.searchKind).toBe('cluster');
+  });
+
+  it('applies the straight-line preset', () => {
+    const preset = applyPlanetCalendarPreset('planetLine');
+    expect(preset.mode).toBe('alignment');
+    expect(preset.alignmentMetric).toBe('collinear');
+    expect(preset.searchKind).toBe('cluster');
+    expect(preset.scaleMode).toBe('true');
+  });
+
+  it('applies mercury-venus as a pair search', () => {
+    const preset = applyPlanetCalendarPreset('mercuryVenusClosest');
+    expect(preset.searchKind).toBe('pair');
+    expect(preset.pairA).toBe('mercury');
+    expect(preset.pairB).toBe('venus');
   });
 });
 
@@ -134,6 +167,8 @@ describe('cluster score', () => {
     expect(clusterScore(date, 'pairwiseSum')).toBeGreaterThan(0);
     expect(clusterScore(date, 'maxPairwise')).toBeGreaterThan(0);
     expect(clusterScore(date, 'chainByLongitude')).toBeGreaterThan(0);
+    expect(clusterScoreAu(date, 'collinear')).toBeGreaterThan(0);
+    expect(clusterScoreAu(date, 'syzygy')).toBeGreaterThan(0);
   });
 
   it('reports AU-scale magnitudes for the AU objective', () => {

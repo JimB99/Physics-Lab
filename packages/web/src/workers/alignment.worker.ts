@@ -1,6 +1,7 @@
 import { findBestAlignment, findClosestPair } from 'physics-engine';
 import type {
   AlignmentMetric,
+  AlignmentSearchKind,
   AlignmentSearchResult,
   DisplayScaleMode,
   OrbitalPlanetId,
@@ -13,6 +14,7 @@ export interface AlignmentRequest {
   endMs: number;
   metric: AlignmentMetric;
   scaleMode: DisplayScaleMode;
+  searchKind: AlignmentSearchKind;
   pairA: OrbitalPlanetId;
   pairB: OrbitalPlanetId;
 }
@@ -30,11 +32,14 @@ self.onmessage = (event: MessageEvent<AlignmentRequest>) => {
   const end = new Date(request.endMs);
 
   try {
-    const alignment = findBestAlignment(start, end, request.metric, request.scaleMode);
+    const alignment =
+      request.searchKind === 'cluster'
+        ? findBestAlignment(start, end, request.metric, request.scaleMode)
+        : null;
     const pair =
-      request.pairA === request.pairB
-        ? null
-        : findClosestPair(request.pairA, request.pairB, start, end, request.scaleMode);
+      request.searchKind === 'pair' && request.pairA !== request.pairB
+        ? findClosestPair(request.pairA, request.pairB, start, end, request.scaleMode)
+        : null;
     const response: AlignmentResponse = { requestId: request.requestId, alignment, pair };
     self.postMessage(response);
   } catch (error) {

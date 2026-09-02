@@ -1,7 +1,20 @@
 import type { DateParts } from './types';
 
+/** VSOP87 / astronomy-engine civil-year window used by Planet Calendar. */
+export const CALENDAR_YEAR_MIN = 1;
+export const CALENDAR_YEAR_MAX = 9999;
+
+/**
+ * Build a UTC Date without the JavaScript `Date.UTC` 0–99 → 1900–1999 quirk.
+ */
+export function utcCalendarDate(year: number, month: number, day: number, hour = 12): Date {
+  const date = new Date(Date.UTC(2000, 0, 1, hour, 0, 0, 0));
+  date.setUTCFullYear(year, month - 1, day);
+  return date;
+}
+
 export function parseDateParts(day: number, month: number, year: number): Date {
-  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return utcCalendarDate(year, month, day, 12);
 }
 
 export function formatDateParts(date: Date): DateParts {
@@ -38,8 +51,10 @@ export function validateDateParts(day: number, month: number, year: number): str
   }
   if (month < 1 || month > 12) return 'Month must be between 1 and 12';
   if (day < 1 || day > 31) return 'Day must be between 1 and 31';
-  if (year < 1) return 'Year must be positive';
-  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (year < CALENDAR_YEAR_MIN || year > CALENDAR_YEAR_MAX) {
+    return `Year must be between ${CALENDAR_YEAR_MIN} and ${CALENDAR_YEAR_MAX}`;
+  }
+  const candidate = utcCalendarDate(year, month, day, 0);
   if (
     candidate.getUTCFullYear() !== year ||
     candidate.getUTCMonth() !== month - 1 ||

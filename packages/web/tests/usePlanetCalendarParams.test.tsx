@@ -11,6 +11,7 @@ function Probe() {
     <div>
       <span data-testid="scale">{params.scaleMode}</span>
       <span data-testid="metric">{params.alignmentMetric}</span>
+      <span data-testid="search">{params.searchKind}</span>
       <span data-testid="pairA">{params.pairA}</span>
       <span data-testid="query">{search.toString()}</span>
       <button
@@ -46,6 +47,12 @@ describe('usePlanetCalendarParams', () => {
     renderProbe('/solar-system/planet-calendar?scale=true&metric=chainByLongitude');
     expect(screen.getByTestId('scale').textContent).toBe('true');
     expect(screen.getByTestId('metric').textContent).toBe('chainByLongitude');
+  });
+
+  it('reads collinear metric and pair search kind', () => {
+    renderProbe('/solar-system/planet-calendar?metric=collinear&search=pair');
+    expect(screen.getByTestId('metric').textContent).toBe('collinear');
+    expect(screen.getByTestId('search').textContent).toBe('pair');
   });
 
   it('falls back to a valid planet when pairA is garbage', () => {

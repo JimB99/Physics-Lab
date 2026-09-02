@@ -1,10 +1,11 @@
 import { addDays, parseDateParts } from './dates';
-import type { AlignmentMetric, OrbitalPlanetId } from './types';
+import type { AlignmentMetric, AlignmentSearchKind, DisplayScaleMode, OrbitalPlanetId } from './types';
 
 export type PlanetCalendarPresetId =
   | 'today'
   | 'jupiterSaturn2020'
   | 'planetParade'
+  | 'planetLine'
   | 'mercuryVenusClosest';
 
 export interface PlanetCalendarPreset {
@@ -26,8 +27,13 @@ export const PLANET_CALENDAR_PRESETS: PlanetCalendarPreset[] = [
   },
   {
     id: 'planetParade',
-    label: 'Find next planet parade',
-    description: 'Search the next 15 years for the tightest planetary cluster.',
+    label: 'Tightest cluster (15 years)',
+    description: 'Search the next 15 years for the smallest planetary cluster.',
+  },
+  {
+    id: 'planetLine',
+    label: 'Straightest line (15 years)',
+    description: 'Search the next 15 years for the date when the planets form the straightest line.',
   },
   {
     id: 'mercuryVenusClosest',
@@ -53,8 +59,29 @@ export interface PresetParams {
   endMonth: number;
   endYear: number;
   alignmentMetric: AlignmentMetric;
+  searchKind: AlignmentSearchKind;
+  scaleMode: DisplayScaleMode;
   pairA: OrbitalPlanetId;
   pairB: OrbitalPlanetId;
+}
+
+function rangeFromToday(days: number) {
+  const today = todayUtcDate();
+  const t = {
+    day: today.getUTCDate(),
+    month: today.getUTCMonth() + 1,
+    year: today.getUTCFullYear(),
+  };
+  const end = addDays(today, days);
+  return {
+    ...t,
+    startDay: t.day,
+    startMonth: t.month,
+    startYear: t.year,
+    endDay: end.getUTCDate(),
+    endMonth: end.getUTCMonth() + 1,
+    endYear: end.getUTCFullYear(),
+  };
 }
 
 export function applyPlanetCalendarPreset(id: PlanetCalendarPresetId): PresetParams {
@@ -77,6 +104,8 @@ export function applyPlanetCalendarPreset(id: PlanetCalendarPresetId): PresetPar
         endMonth: t.month,
         endYear: t.year,
         alignmentMetric: 'pairwiseSum',
+        searchKind: 'cluster',
+        scaleMode: 'schematic',
         pairA: 'mars',
         pairB: 'jupiter',
       };
@@ -93,40 +122,40 @@ export function applyPlanetCalendarPreset(id: PlanetCalendarPresetId): PresetPar
         endMonth: 12,
         endYear: 2020,
         alignmentMetric: 'pairwiseSum',
+        searchKind: 'cluster',
+        scaleMode: 'schematic',
         pairA: 'jupiter',
         pairB: 'saturn',
       };
-    case 'planetParade': {
-      const end = addDays(today, 15 * 365);
+    case 'planetParade':
       return {
         mode: 'alignment',
-        ...t,
-        startDay: t.day,
-        startMonth: t.month,
-        startYear: t.year,
-        endDay: end.getUTCDate(),
-        endMonth: end.getUTCMonth() + 1,
-        endYear: end.getUTCFullYear(),
+        ...rangeFromToday(15 * 365),
         alignmentMetric: 'pairwiseSum',
+        searchKind: 'cluster',
+        scaleMode: 'schematic',
         pairA: 'mars',
         pairB: 'jupiter',
       };
-    }
-    case 'mercuryVenusClosest': {
-      const end = addDays(today, 5 * 365);
+    case 'planetLine':
       return {
         mode: 'alignment',
-        ...t,
-        startDay: t.day,
-        startMonth: t.month,
-        startYear: t.year,
-        endDay: end.getUTCDate(),
-        endMonth: end.getUTCMonth() + 1,
-        endYear: end.getUTCFullYear(),
+        ...rangeFromToday(15 * 365),
+        alignmentMetric: 'collinear',
+        searchKind: 'cluster',
+        scaleMode: 'true',
+        pairA: 'mars',
+        pairB: 'jupiter',
+      };
+    case 'mercuryVenusClosest':
+      return {
+        mode: 'alignment',
+        ...rangeFromToday(5 * 365),
         alignmentMetric: 'pairwiseSum',
+        searchKind: 'pair',
+        scaleMode: 'true',
         pairA: 'mercury',
         pairB: 'venus',
       };
-    }
   }
 }

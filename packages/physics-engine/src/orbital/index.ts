@@ -4,6 +4,7 @@ export * from './dates';
 export * from './ephemeris';
 export * from './positions';
 export * from './search';
+export * from './geometry';
 export * from './alignment';
 export * from './presets';
 export * from './moon';

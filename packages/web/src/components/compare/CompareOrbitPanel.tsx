@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { CelestialBodyId, OrbitalPlanetId } from 'physics-engine';
-import { getSolarSystemSnapshot, todayUtcDate } from 'physics-engine';
+import { formatIsoDate, getSolarSystemSnapshot, parseIsoDate, todayUtcDate } from 'physics-engine';
 import { buildPlanetCalendarLink } from '../../hooks/usePlanetCalendarParams';
 import { planetLabel } from '../../lib/compareDefaults';
 
@@ -19,12 +19,12 @@ export function CompareOrbitPanel({ orbitDate, onDateChange, planets }: CompareO
 
   const uniquePlanets = [...new Set(planets.filter((p) => p !== 'custom'))];
 
-  const dateInputValue = `${orbitDate.getUTCFullYear()}-${String(orbitDate.getUTCMonth() + 1).padStart(2, '0')}-${String(orbitDate.getUTCDate()).padStart(2, '0')}`;
+  const dateInputValue = formatIsoDate(orbitDate);
 
   return (
-    <div className="card" style={{ marginTop: '1rem' }}>
-      <h3 style={{ marginTop: 0 }}>Orbit date</h3>
-      <p className="muted" style={{ fontSize: '0.9rem' }}>
+    <details className="card" style={{ marginTop: '1rem' }}>
+      <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Orbit date (optional)</summary>
+      <p className="muted" style={{ fontSize: '0.85rem' }}>
         Heliocentric positions for each variant&apos;s planet on the chosen date (true AU).
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
@@ -32,8 +32,8 @@ export function CompareOrbitPanel({ orbitDate, onDateChange, planets }: CompareO
           type="date"
           value={dateInputValue}
           onChange={(e) => {
-            const [y, m, d] = e.target.value.split('-').map(Number);
-            if (y && m && d) onDateChange(new Date(Date.UTC(y, m - 1, d, 12, 0, 0)));
+            const parsed = parseIsoDate(e.target.value);
+            if (parsed) onDateChange(parsed);
           }}
           style={{ padding: '0.45rem' }}
         />
@@ -85,6 +85,6 @@ export function CompareOrbitPanel({ orbitDate, onDateChange, planets }: CompareO
           </tbody>
         </table>
       </div>
-    </div>
+    </details>
   );
 }

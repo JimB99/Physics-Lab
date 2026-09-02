@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { FieldMode } from '../components/inputs/SolvableField';
+import { parseUrlFieldModes } from '../lib/fieldModes';
 
 type ParamValue = number | string;
 
@@ -20,22 +21,18 @@ export function useScenarioParams<T extends Record<string, ParamValue>>(
       const param = searchParams.get(key);
       if (param !== null) {
         const def = defaults[key as keyof T];
-        result[key as keyof T] = (
-          typeof def === 'number' ? parseFloat(param) || 0 : param
-        ) as T[keyof T];
+        if (typeof def === 'number') {
+          const parsed = Number(param);
+          result[key as keyof T] = (Number.isFinite(parsed) ? parsed : def) as T[keyof T];
+        } else {
+          result[key as keyof T] = param as T[keyof T];
+        }
       }
     }
     return result;
   }, [searchParams, defaults]);
 
-  const modes = useMemo(() => {
-    const result: Record<string, FieldMode> = {};
-    for (const key of Object.keys(defaults)) {
-      const modeParam = searchParams.get(`${key}_mode`);
-      result[key] = modeParam === 'solve' ? 'solve' : 'given';
-    }
-    return result;
-  }, [searchParams, defaults]);
+  const modes = useMemo(() => parseUrlFieldModes(searchParams), [searchParams]);
 
   const setValue = useCallback(
     (key: keyof T, value: ParamValue) => {

@@ -242,25 +242,22 @@ export function solveProjectile(
     if (state[id] === undefined && multiValues[id] === undefined) missing.push(id);
   }
 
-  if (missing.length > 0) {
-    if (state.h0 === undefined || state.v0 === undefined || state.angle === undefined) {
-      return {
-        status: 'underdetermined',
-        message: 'Need h₀, v₀, and launch angle (or enough info to derive them)',
-        missing,
-      };
-    }
-    return {
-      status: 'underdetermined',
-      message: 'Not enough information to solve for all fields',
-      missing,
-    };
-  }
-
   const values: Record<string, number> = {};
   for (const id of toSolve) {
     const resolved = state[id];
     if (resolved !== undefined) values[id] = resolved;
+  }
+
+  if (Object.keys(values).length === 0 && Object.keys(multiValues).length === 0) {
+    const needLaunch =
+      state.h0 === undefined || state.v0 === undefined || state.angle === undefined;
+    return {
+      status: 'underdetermined',
+      message: needLaunch
+        ? 'Need h₀, v₀, and launch angle (or enough info to derive them)'
+        : 'Not enough information to solve for all fields',
+      missing,
+    };
   }
 
   return {

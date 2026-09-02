@@ -113,4 +113,27 @@ describe('solveVertical1D', () => {
     );
     expect(result.status).toBe('overconstrained');
   });
+
+  it('solves impact even when t and y are also marked solve', () => {
+    const result = solveVertical1D(
+      fields([
+        ['h0', 'given', 10],
+        ['v0', 'given', 0],
+        ['t', 'solve'],
+        ['y', 'solve'],
+        ['v', 'solve'],
+        ['impactTime', 'solve'],
+        ['impactVelocity', 'solve'],
+        ['maxHeight', 'solve'],
+        ['timeToMaxHeight', 'solve'],
+      ]),
+      earthEnv,
+    );
+    expect(result.status).toBe('solved');
+    if (result.status === 'solved') {
+      expect(result.values.impactTime).toBeCloseTo(1.428, 2);
+      expect(result.values.t).toBeUndefined();
+      expect(result.values.y).toBeUndefined();
+    }
+  });
 });

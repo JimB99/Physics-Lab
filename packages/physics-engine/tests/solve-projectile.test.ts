@@ -139,4 +139,26 @@ describe('solveProjectile', () => {
     );
     expect(result.status).toBe('overconstrained');
   });
+
+  it('solves range even when time-point fields are also marked solve', () => {
+    const result = solveProjectile(
+      fields([
+        ['h0', 'given', 0],
+        ['v0', 'given', 20],
+        ['angle', 'given', 45],
+        ['t', 'solve'],
+        ['x', 'solve'],
+        ['y', 'solve'],
+        ['v', 'solve'],
+        ['range', 'solve'],
+        ['flightTime', 'solve'],
+      ]),
+      earthEnv,
+    );
+    expect(result.status).toBe('solved');
+    if (result.status === 'solved') {
+      expect(result.values.range).toBeCloseTo(40.8, 0);
+      expect(result.values.t).toBeUndefined();
+    }
+  });
 });

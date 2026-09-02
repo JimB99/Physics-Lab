@@ -7,10 +7,12 @@ import { EnvironmentPanel } from './inputs/EnvironmentPanel';
 import { DragPanel } from './inputs/DragPanel';
 import { ImpactPanel } from './inputs/ImpactPanel';
 import { SolvableField } from './inputs/SolvableField';
+import { FieldGroup } from './inputs/FieldGroup';
 import { ResultsPanel } from './results/ResultsPanel';
 import { ResultsActions } from './results/ResultsActions';
 import { PresetBar } from './inputs/PresetBar';
-import { VERTICAL_PRESETS } from '../lib/scenarioPresets';
+import { FREE_FALL_PRESETS, VERTICAL_THROW_PRESETS } from '../lib/scenarioPresets';
+import { VERTICAL_DEFAULT_MODES, VERTICAL_FIELD_IDS, resolveFieldModes } from '../lib/fieldModes';
 import { SimulationCanvas } from './simulation/SimulationCanvas';
 import { WorkspaceTabs } from './WorkspaceTabs';
 import { useScenarioParams } from '../hooks/useScenarioParams';
@@ -18,8 +20,6 @@ import { useMotionScenario } from '../hooks/useMotionScenario';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDragSettings } from '../hooks/useDragSettings';
 import { useImpactSettings } from '../hooks/useImpactSettings';
-
-const VERTICAL_FIELDS = ['h0', 'v0', 't', 'y', 'v', 'impactTime', 'impactVelocity', 'maxHeight', 'timeToMaxHeight'] as const;
 
 const FIELD_LABELS: Record<string, { label: string; unit: string; default: number }> = {
   h0: { label: 'Initial height h₀', unit: 'm', default: 10 },
@@ -31,18 +31,6 @@ const FIELD_LABELS: Record<string, { label: string; unit: string; default: numbe
   impactVelocity: { label: 'Impact velocity', unit: 'm/s', default: 0 },
   maxHeight: { label: 'Maximum height', unit: 'm', default: 0 },
   timeToMaxHeight: { label: 'Time to max height', unit: 's', default: 0 },
-};
-
-const DEFAULT_MODES: Record<string, 'given' | 'solve'> = {
-  h0: 'given',
-  v0: 'given',
-  t: 'solve',
-  y: 'solve',
-  v: 'solve',
-  impactTime: 'solve',
-  impactVelocity: 'solve',
-  maxHeight: 'solve',
-  timeToMaxHeight: 'solve',
 };
 
 interface VerticalScenarioPageProps {
@@ -58,7 +46,7 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
   const [impact, setImpact] = useImpactSettings();
 
   const fullDefaults = useMemo(() => {
-    const numeric = Object.fromEntries(VERTICAL_FIELDS.map((f) => [f, FIELD_LABELS[f]!.default]));
+    const numeric = Object.fromEntries(VERTICAL_FIELD_IDS.map((f) => [f, FIELD_LABELS[f]!.default]));
     return {
       ...numeric,
       planet: 'earth' as CelestialBodyId,
@@ -69,13 +57,10 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
 
   const [values, urlModes, setValue, setMode] = useScenarioParams(fullDefaults);
 
-  const modes = useMemo(() => {
-    const m = { ...DEFAULT_MODES };
-    for (const key of Object.keys(urlModes)) {
-      if (key in m && urlModes[key]) m[key] = urlModes[key]!;
-    }
-    return m;
-  }, [urlModes]);
+  const modes = useMemo(
+    () => resolveFieldModes(VERTICAL_DEFAULT_MODES, urlModes),
+    [urlModes],
+  );
 
   const effectiveModes = useMemo(
     () => (releasedFromRest ? { ...modes, v0: 'given' as const } : modes),
@@ -100,7 +85,7 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
     planet,
     customG,
     mass,
-    fieldIds: [...VERTICAL_FIELDS],
+    fieldIds: [...VERTICAL_FIELD_IDS],
     dragSettings,
   });
 
@@ -119,7 +104,7 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
           ? scenario.solveResult.message
           : undefined;
 
-  const resultItems = VERTICAL_FIELDS.filter((f) => effectiveModes[f] === 'solve').map((f) => ({
+  const resultItems = VERTICAL_FIELD_IDS.filter((f) => effectiveModes[f] === 'solve').map((f) => ({
     label: FIELD_LABELS[f]!.label,
     value: solved[f],
     unit: FIELD_LABELS[f]!.unit,
@@ -137,8 +122,8 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
       title={title}
       inputs={
         <div>
-          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{description}</p>
-          <PresetBar presets={VERTICAL_PRESETS} />
+          <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.6rem' }}>{description}</p>
+          <PresetBar presets={releasedFromRest ? FREE_FALL_PRESETS : VERTICAL_THROW_PRESETS} />
           <EnvironmentPanel
             planet={planet}
             customG={customG}
@@ -162,29 +147,68 @@ export function VerticalScenarioPage({ title, description, variant }: VerticalSc
             onStoppingDistanceChange={(stoppingDistance) => setImpact({ stoppingDistance })}
             onContactAreaChange={(contactArea) => setImpact({ contactArea })}
           />
-          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', marginTop: '1rem' }}>Problem fields</h3>
-          <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-            Lock values you know; mark others as Solve.
-          </p>
           {releasedFromRest && (
-            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-              Free fall means released from rest, so v₀ is fixed at 0 m/s. Use{' '}
-              <Link to="/motion/vertical-throw">Vertical Throw</Link> for a non-zero initial velocity.
+            <p className="muted" style={{ fontSize: '0.75rem', margin: '0.5rem 0' }}>
+              v₀ is fixed at 0. Use <Link to="/motion/vertical-throw">Vertical Throw</Link> for a launch speed.
             </p>
           )}
-          {VERTICAL_FIELDS.filter((f) => !(releasedFromRest && f === 'v0')).map((f) => (
-            <SolvableField
-              key={f}
-              id={f}
-              label={FIELD_LABELS[f]!.label}
-              unit={FIELD_LABELS[f]!.unit}
-              mode={effectiveModes[f] ?? 'solve'}
-              value={(effectiveValues[f] as number) ?? FIELD_LABELS[f]!.default}
-              solvedValue={solved[f]}
-              onModeChange={(m) => setMode(f, m)}
-              onValueChange={(v) => setValue(f, v)}
-            />
-          ))}
+          <FieldGroup title="Launch" defaultOpen>
+            {(['h0', 'v0'] as const)
+              .filter((f) => !(releasedFromRest && f === 'v0'))
+              .map((f) => (
+                <SolvableField
+                  key={f}
+                  id={f}
+                  label={FIELD_LABELS[f]!.label}
+                  unit={FIELD_LABELS[f]!.unit}
+                  mode={effectiveModes[f] ?? 'solve'}
+                  value={(effectiveValues[f] as number) ?? FIELD_LABELS[f]!.default}
+                  solvedValue={solved[f]}
+                  onModeChange={(m) => setMode(f, m)}
+                  onValueChange={(v) => setValue(f, v)}
+                />
+              ))}
+          </FieldGroup>
+          <FieldGroup
+            title="At time t"
+            defaultOpen={(['t', 'y', 'v'] as const).some((f) => effectiveModes[f] === 'given')}
+          >
+            {(['t', 'y', 'v'] as const).map((f) => (
+              <SolvableField
+                key={f}
+                id={f}
+                label={FIELD_LABELS[f]!.label}
+                unit={FIELD_LABELS[f]!.unit}
+                mode={effectiveModes[f] ?? 'solve'}
+                value={(effectiveValues[f] as number) ?? FIELD_LABELS[f]!.default}
+                solvedValue={solved[f]}
+                onModeChange={(m) => setMode(f, m)}
+                onValueChange={(v) => setValue(f, v)}
+              />
+            ))}
+          </FieldGroup>
+          <FieldGroup
+            title="Impact and apex"
+            defaultOpen={
+              (['impactTime', 'impactVelocity', 'maxHeight', 'timeToMaxHeight'] as const).some(
+                (f) => effectiveModes[f] === 'given',
+              )
+            }
+          >
+            {(['impactTime', 'impactVelocity', 'maxHeight', 'timeToMaxHeight'] as const).map((f) => (
+              <SolvableField
+                key={f}
+                id={f}
+                label={FIELD_LABELS[f]!.label}
+                unit={FIELD_LABELS[f]!.unit}
+                mode={effectiveModes[f] ?? 'solve'}
+                value={(effectiveValues[f] as number) ?? FIELD_LABELS[f]!.default}
+                solvedValue={solved[f]}
+                onModeChange={(m) => setMode(f, m)}
+                onValueChange={(v) => setValue(f, v)}
+              />
+            ))}
+          </FieldGroup>
         </div>
       }
       simulation={
