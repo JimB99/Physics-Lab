@@ -2,9 +2,26 @@
 
 Interactive physics playground for motion under gravity — calculations, equations, graphs, and simulations in the browser.
 
+**Status:** Deployed and maintained ([GitHub Pages](https://jimb99.github.io/Physics-Lab/)). Core physics engine is unit-tested separately from the React UI.
+
 **[Live demo](https://jimb99.github.io/Physics-Lab/)** · MIT License
 
 Physics Lab is not a black-box calculator. Enter what you know, solve for what you don't, and see the equations, assumptions, and graphs update together.
+
+**Preview:** open the [projectile motion workspace](https://jimb99.github.io/Physics-Lab/motion/projectile) for a representative view (equations, graphs, and simulation stay in sync).
+
+---
+
+## Methods
+
+| Layer | Approach |
+|-------|----------|
+| Idealized motion | Analytical kinematics under constant *g*; flexible inverse solver marks quantities as given or unknown |
+| Drag | Quadratic drag \(F_d = \frac{1}{2}\rho C_d A v^2\); forward integration with **RK4**; sub-step bisection at ground contact for impact time |
+| Impact | Average force from stopping time or distance (labeled non-peak) |
+| Solar system | **VSOP87** heliocentric positions via `astronomy-engine`; alignment search minimizes 3D AU distance on a coarse date grid plus **golden-section** refinement in a Web Worker |
+
+All motion math lives in `packages/physics-engine/` with no React dependency.
 
 ---
 
